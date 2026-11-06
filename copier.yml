@@ -1,0 +1,37 @@
+# Copier template for a reusable Django module: one app, installable into any
+# project made from django-starter (or any Django project).
+#   copier copy ./django-module-starter ./dj-my-module
+# Later, inside the module:  copier update
+
+_min_copier_version: "9.4"
+_subdirectory: template
+
+module_name:
+  type: str
+  help: Human-readable name (e.g. "Site Branding")
+  default: My Module
+
+package_name:
+  type: str
+  help: >-
+    Python import name and Django app label (e.g. "branding"). Must be unique
+    across the apps in any project that installs it.
+  default: "{{ module_name | lower | replace(' ', '_') | replace('-', '_') }}"
+  validator: >-
+    {% if not (package_name | regex_search('^[a-z][a-z0-9_]*$')) %}
+    Use lowercase letters, digits and underscores, starting with a letter.
+    {% endif %}
+
+distribution_name:
+  type: str
+  help: Package name you install with `uv add` (e.g. "dj-branding")
+  default: "dj-{{ package_name | replace('_', '-') }}"
+  validator: >-
+    {% if not (distribution_name | regex_search('^[a-z][a-z0-9-]*$')) %}
+    Use lowercase letters, digits and hyphens.
+    {% endif %}
+
+description:
+  type: str
+  help: One sentence saying what the module does
+  default: "{{ module_name }} for Django projects."
