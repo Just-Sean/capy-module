@@ -14,7 +14,7 @@ module_name:
 package_name:
   type: str
   help: >-
-    Python import name and Django app label (e.g. "branding"). Must be unique
+    Python import name and Django app label (e.g. "capy_theme"). Must be unique
     across the apps in any project that installs it.
   default: "{{ module_name | lower | replace(' ', '_') | replace('-', '_') }}"
   validator: >-
@@ -24,8 +24,8 @@ package_name:
 
 distribution_name:
   type: str
-  help: Package name you install with `uv add` (e.g. "dj-branding")
-  default: "dj-{{ package_name | replace('_', '-') }}"
+  help: Package name you install with `uv add` (e.g. "capy-theme")
+  default: "{{ package_name | replace('_', '-') }}"
   validator: >-
     {% if not (distribution_name | regex_search('^[a-z][a-z0-9-]*$')) %}
     Use lowercase letters, digits and hyphens.
