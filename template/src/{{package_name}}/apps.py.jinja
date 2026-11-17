@@ -4,7 +4,7 @@ from django.apps import AppConfig
 class {{ package_name.title().replace('_', '') }}Config(AppConfig):
     name = "{{ package_name }}"
     label = "{{ package_name }}"
-    verbose_name = "{{ module_name }}"
+    verbose_name = "{{ module_name_quoted }}"
     # Set here, not left to the project, so the module's migrations are the
     # same in every project whatever its DEFAULT_AUTO_FIELD.
     default_auto_field = "django.db.models.BigAutoField"

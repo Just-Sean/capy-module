@@ -1,4 +1,4 @@
-"""{{ module_name }}.
+"""{{ module_name_quoted }}.
 
-{{ description | wordwrap(76) }}
+{{ description | wordwrap(76, break_long_words=False) | replace('\\', '\\\\') | replace('"', '\\"') }}
 """

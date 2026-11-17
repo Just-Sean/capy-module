@@ -1,8 +1,10 @@
 [project]
 name = "{{ distribution_name }}"
 version = "0.1.0"
-description = "{{ description }}"
+description = "{{ description | replace('\\', '\\\\') | replace('"', '\\"') }}"
 readme = "README.md"
+{% if license == "MIT" %}license = "MIT"{% else %}license = "LicenseRef-Proprietary"{% endif %}
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
     "django>=6.1,<7",          # the Django versions this module supports

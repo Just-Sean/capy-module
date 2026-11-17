@@ -1,6 +1,6 @@
 # Copier template for a reusable Django module: one app, installable into any
 # project made from django-starter (or any Django project).
-#   copier copy ./django-module-starter ./dj-my-module
+#   copier copy gh:OWNER/django-module-starter ./dj-my-module
 # Later, inside the module:  copier update
 
 _min_copier_version: "9.4"
@@ -10,16 +10,53 @@ module_name:
   type: str
   help: Human-readable name (e.g. "Site Branding")
   default: My Module
+  # Control characters (line breaks, tabs and the like) would break the generated files;
+  # double quotes would make the generated code fail its own format check. The length
+  # limit keeps the generated lines within ruff's 100 characters.
+  validator: >-
+    {% if not module_name.strip() or module_name != module_name.strip() %}
+    Give the module a name, without spaces at the start or end.
+    {% elif module_name | regex_search('[\x00-\x1f\x7f-\x9f\u2028\u2029]') %}
+    Use a name without tabs, line breaks or other control characters.
+    {% elif '"' in module_name %}
+    Use a name without double quotes (an apostrophe is fine).
+    {% elif (module_name | replace('\\', '\\\\') | length) > 40 %}
+    Use at most 40 characters.
+    {% endif %}
 
 package_name:
   type: str
   help: >-
     Python import name and Django app label (e.g. "capy_theme"). Must be unique
     across the apps in any project that installs it.
-  default: "{{ module_name | lower | replace(' ', '_') | replace('-', '_') }}"
+  default: >-
+    {{ module_name | lower | regex_replace('[^a-z0-9]+', '_')
+       | regex_replace('^[^a-z]+', '') | regex_replace('_+$', '') }}
+  # Refused: names that would load something else instead of the module (Django's own
+  # apps, the folders every django-starter project has, the tests folder), names of the
+  # packages the module itself depends on (uv can't install a package that needs
+  # itself), and Python keywords. A name that matches a Python standard-library module
+  # (json, email, logging, ...) is caught by the module's first test run
+  # (test_app_loads_from_its_own_package).
   validator: >-
-    {% if not (package_name | regex_search('^[a-z][a-z0-9_]*$')) %}
-    Use lowercase letters, digits and underscores, starting with a letter.
+    {% if not (package_name | regex_search('^[a-z]([a-z0-9_]*[a-z0-9])?$')) %}
+    Use lowercase letters, digits and underscores, starting with a letter and not
+    ending with an underscore.
+    {% elif package_name | length > 40 %}
+    Use at most 40 characters.
+    {% elif package_name in ['django', 'tests', 'test', 'admin', 'auth', 'contenttypes',
+      'sessions', 'messages', 'staticfiles', 'sites', 'humanize', 'postgres', 'sitemaps',
+      'syndication', 'flatpages', 'redirects', 'gis', 'admindocs', 'accounts', 'config'] %}
+    "{{ package_name }}" is taken by Django, django-starter projects or the test setup:
+    choose another name.
+    {% elif package_name in ['pytest', 'pytest_django', 'pytest_cov', 'coverage', 'ruff',
+      'pre_commit', 'pip_audit', 'psycopg', 'dj_database_url'] %}
+    "{{ package_name }}" is one of the module's own tools: choose another name.
+    {% elif package_name in ['and', 'as', 'assert', 'async', 'await', 'break', 'class',
+      'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from',
+      'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass',
+      'raise', 'return', 'try', 'while', 'with', 'yield'] %}
+    "{{ package_name }}" is a Python keyword: choose another name.
     {% endif %}
 
 distribution_name:
@@ -27,11 +64,63 @@ distribution_name:
   help: Package name you install with `uv add` (e.g. "capy-theme")
   default: "{{ package_name | replace('_', '-') }}"
   validator: >-
-    {% if not (distribution_name | regex_search('^[a-z][a-z0-9-]*$')) %}
-    Use lowercase letters, digits and hyphens.
+    {% if not (distribution_name | regex_search('^[a-z]([a-z0-9-]*[a-z0-9])?$')) %}
+    Use lowercase letters, digits and hyphens, starting with a letter and not ending
+    with a hyphen.
+    {% elif distribution_name | length > 60 %}
+    Use at most 60 characters.
+    {% elif distribution_name in ['django', 'pytest', 'pytest-django', 'pytest-cov',
+      'coverage', 'ruff', 'pre-commit', 'pip-audit', 'psycopg', 'dj-database-url'] %}
+    "{{ distribution_name }}" is a package the module itself uses: choose another name.
     {% endif %}
 
 description:
   type: str
   help: One sentence saying what the module does
   default: "{{ module_name }} for Django projects."
+  validator: >-
+    {% if not description.strip() or description != description.strip() %}
+    Describe the module in one sentence, without spaces at the start or end.
+    {% elif description | regex_search('[\x00-\x1f\x7f-\x9f\u2028\u2029]') %}
+    Use one line, without tabs or other control characters.
+    {% elif description | length > 200 %}
+    Use at most 200 characters.
+    {% endif %}
+
+github_owner:
+  type: str
+  help: >-
+    The GitHub account or organization the module's repository belongs to (the OWNER
+    in github.com/OWNER/...). Used in the install commands and the LICENSE. Change it
+    later with `copier update --defaults --data github_owner=NEW`.
+  validator: >-
+    {% if not (github_owner | regex_search('^[A-Za-z0-9](-?[A-Za-z0-9]){0,38}$')) %}
+    Use the GitHub name exactly: letters, digits and single hyphens (not at the start
+    or end), up to 39 characters.
+    {% endif %}
+
+license:
+  type: str
+  help: >-
+    The module's license: MIT (anyone may use, copy and change it, keeping the notice)
+    or proprietary (private: all rights reserved, no use without permission)
+  choices:
+    MIT: MIT
+    Proprietary (all rights reserved): Proprietary
+
+copyright_year:
+  type: str
+  help: The year in the copyright notice (when the module was first made)
+  default: "{{ '%Y' | strftime }}"
+  validator: >-
+    {% if not (copyright_year | regex_search('^[0-9]{4}$')) %}
+    Use a four-digit year.
+    {% endif %}
+
+# Not a question: the name made safe to put inside a quoted string in the generated
+# Python files (a backslash would end it otherwise; double quotes are refused above).
+module_name_quoted:
+  type: str
+  when: false
+  default: >-
+    {{ module_name | replace('\\', '\\\\') }}
