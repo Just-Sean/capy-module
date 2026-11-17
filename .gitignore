@@ -1,0 +1,11 @@
+# The starter repo's own ignores (new modules get template/.gitignore).
+.venv/
+__pycache__/
+*.py[cod]
+
+# Secrets and keys never go in git. `copier copy --vcs-ref=HEAD` also copies files
+# that aren't committed, so anything not ignored here could end up in a new module.
+.env
+.env.*
+*.pem
+*.key
