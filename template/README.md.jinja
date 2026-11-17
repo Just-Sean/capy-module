@@ -84,11 +84,32 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
   that read the database go in a page that extends `base.html` (the project's layout),
   never in `base.html` itself, so the project's error pages keep working when the
   database is down.
-- **No inline code**: projects enforce a strict Content Security Policy. Put CSS and
-  JavaScript in static files; if inline code is unavoidable, give the tag
-  `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"`. Never `style="…"`, `onclick=` or
-  `javascript:` links, and nothing from other sites (CDNs, web fonts) without the
-  project allowing it (`tests/test_host_rules.py` checks the templates).
+- **No inline code**: projects enforce a strict Content Security Policy (a
+  django-starter project only reports problems while you develop, and blocks them in
+  production). Put CSS and JavaScript in static files; if inline code is unavoidable,
+  give the tag `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"` or
+  `{% raw %}{% csp_nonce_attr %}{% endraw %}`. Never `style="…"`, `onclick=` or
+  `javascript:` links, and no code that needs `eval` (htmx's `hx-on`, Alpine's
+  `x-on`). Load nothing from other sites (CDNs, web fonts, images too) and don't post
+  forms to them; `data:` URLs only for images and icons. No frames, video, audio,
+  embedded objects or manifests: a django-starter project's policy blocks them all.
+- **`tests/test_csp.py` checks** the module's HTML, SVG, XML and Jinja templates under
+  `templates/` and `jinja2/` against that policy. It's a safety net that reads
+  template source, not a browser: it can't see CSS or JavaScript files, what inline
+  code loads, what template variables hold (a URL from a setting or the database), a
+  block a project's template fills in, HTML built in Python (`format_html`), or
+  markup opened in one `{% raw %}{% if %}{% endraw %}` branch and closed in another, so
+  keep the same rules there. It reports a full URL to the project's own site as another
+  site (use a path, `/x/`, or `{% raw %}{% url %}{% endraw %}`), and a nonce'd script
+  whose code contains the text `<script` or `<style`. To comment code out, use
+  `{% raw %}{% comment %}{% endraw %}`, a one-line `{% raw %}{# #}{% endraw %}` or an
+  HTML comment: Django prints a `{% raw %}{# #}{% endraw %}` that spans lines as text,
+  and the check reads Jinja templates the same way, so keep `{% raw %}{# #}{% endraw %}`
+  on one line in Jinja templates too.
+- **HTML emails** go in `templates/{{ package_name }}/emails/` (or
+  `jinja2/{{ package_name }}/emails/`): they need inline styles and full image URLs,
+  and the site's policy doesn't apply to them, so the check skips that folder. Nothing
+  else goes there.
 - **Uploads:** see [Security](#security).
 - **Slow work** (emails, file processing, calls to other services) goes to a
   background job with Django's Tasks API; **email** goes through `django.core.mail`.
@@ -281,7 +302,8 @@ If the repository itself moved, also point git at it:
 | `tests/settings.py` | A tiny stand-in project for the tests |
 | `tests/urls.py` | The stand-in project's URLs; add the module's here once it has some |
 | `tests/test_app.py` | Checks the app loads from its own package and its migrations are complete |
-| `tests/test_host_rules.py` | Checks the module adds no `check --deploy` warning to a project, and its templates have nothing a strict Content Security Policy blocks |
+| `tests/test_host_rules.py` | Checks the module adds no `check --deploy` warning to a project |
+| `tests/test_csp.py` | Checks the module's templates have nothing a strict Content Security Policy blocks |
 | `LICENSE` | The module's license ({{ license }}) |
 | `pyproject.toml` | Package name, version, Django versions supported, tool settings |
 | `CHANGELOG.md` | What changed in each version, and what projects must do |

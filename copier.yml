@@ -6,18 +6,85 @@
 _min_copier_version: "9.4"
 _subdirectory: template
 
+# Not questions: names a module may not take, because once installed the module and a
+# package of the same name would replace each other. An import name clash overwrites
+# the package's files without a warning: a module called "axes" would remove a
+# django-starter project's login rate limiting. A distribution name clash makes uv
+# treat the module and the package as one. A Python standard-library name (json,
+# email, ...) is caught by the module's first test run
+# (test_app_loads_from_its_own_package). How to keep these lists current: this
+# repository's README, "Working on the starter".
+taken_package_names:
+  type: yaml
+  when: false
+  default: [
+    # Django's own apps; what every django-starter project has (its folders, manage.py,
+    # whitenoise's runserver_nostatic app); test folder names ("test" is also a
+    # standard-library package, refused here too because it's so common);
+    # "migrations", which the module's lint and coverage settings skip; names Python
+    # itself imports at startup
+    django, admin, auth, contenttypes, sessions, messages, staticfiles, sites, humanize,
+    postgres, sitemaps, syndication, flatpages, redirects, gis, admindocs, accounts,
+    config, manage, runserver_nostatic, tests, test, migrations, sitecustomize,
+    usercustomize,
+    # what django-starter projects install (top-level import names, and app labels
+    # that differ from them)
+    argon2, asgiref, axes, boolean, boto3, botocore, cachecontrol, certifi, cffi, cfgv,
+    charset_normalizer, colorama, coverage, cyclonedx, dateutil, defusedxml, distlib,
+    django_stubs_ext, django_tasks, django_tasks_db, django_tasks_database, dotenv,
+    environ, filelock, gunicorn, identify, idna, iniconfig, jmespath,
+    license_expression, markdown_it, mdurl, msgpack, nodeenv, packageurl, packaging,
+    packaging_legacy_version, pip, pip_api, pip_audit, pip_requirements_parser,
+    platformdirs, pluggy, pre_commit, psycopg, psycopg_binary, py_serializable,
+    serializable, py, pycparser, pygments, pyparsing, pytest, pytest_cov, pytest_django,
+    pytest_env, python_discovery, redis, requests, rich, ruff, s3transfer, six,
+    sortedcontainers, sqlparse, storages, tomli, tomli_w, typing_extensions, tzdata,
+    urllib3, virtualenv, whitenoise, yaml,
+    # what the module itself installs, besides the above
+    dj_database_url,
+  ]
+taken_distribution_names:
+  type: yaml
+  when: false
+  default: [
+    argon2-cffi, argon2-cffi-bindings, asgiref, boolean-py, boto3, botocore,
+    cachecontrol, certifi, cffi, cfgv, charset-normalizer, colorama, coverage,
+    cyclonedx-python-lib, defusedxml, distlib, dj-database-url, django, django-axes,
+    django-environ, django-storages, django-stubs-ext, django-tasks, django-tasks-db,
+    filelock, gunicorn, identify, idna, iniconfig, jmespath, license-expression,
+    markdown-it-py, mdurl, msgpack, nodeenv, packageurl-python, packaging, pip, pip-api,
+    pip-audit, pip-requirements-parser, platformdirs, pluggy, pre-commit, psycopg,
+    psycopg-binary, py-serializable, py, pycparser, pygments, pyparsing, pytest, pytest-cov,
+    pytest-django, pytest-env, python-dateutil, python-discovery, python-dotenv, pyyaml,
+    redis, requests, rich, ruff, s3transfer, six, sortedcontainers, sqlparse, tomli,
+    tomli-w, typing-extensions, tzdata, urllib3, virtualenv, whitenoise,
+  ]
+
+# Not a question: characters refused in the module's name and description. Control
+# characters (line breaks, tabs and the like) would break the generated files; invisible
+# ones (zero-width spaces, text-direction marks and overrides, invisible fillers, tag
+# characters: Unicode's "format" characters) would make the generated code read
+# differently from what it does; so would U+2800, a blank-looking Braille pattern.
+# Allowed: the zero-width joiner and non-joiner, which join letters or emoji (Persian
+# needs them), and variation selectors, which pick how an emoji is drawn.
+unsafe_characters:
+  type: str
+  when: false
+  default: >-
+    [\x00-\x1f\x7f-\x9f\u00ad\u034f\u0600-\u0605\u061c\u06dd\u070f\u0890\u0891\u08e2\u115f\u1160\u17b4\u17b5\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u206f\u2800\u3164\ufeff\uffa0\ufff9-\ufffb\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f]
+
 module_name:
   type: str
   help: Human-readable name (e.g. "Site Branding")
   default: My Module
-  # Control characters (line breaks, tabs and the like) would break the generated files;
-  # double quotes would make the generated code fail its own format check. The length
-  # limit keeps the generated lines within ruff's 100 characters.
+  # Characters in unsafe_characters (above) are refused; double quotes would make the
+  # generated code fail its own format check. The length limit keeps the generated
+  # lines within ruff's 100 characters.
   validator: >-
     {% if not module_name.strip() or module_name != module_name.strip() %}
     Give the module a name, without spaces at the start or end.
-    {% elif module_name | regex_search('[\x00-\x1f\x7f-\x9f\u2028\u2029]') %}
-    Use a name without tabs, line breaks or other control characters.
+    {% elif module_name | regex_search(unsafe_characters) %}
+    Use a name without tabs, line breaks, invisible or other control characters.
     {% elif '"' in module_name %}
     Use a name without double quotes (an apostrophe is fine).
     {% elif (module_name | replace('\\', '\\\\') | length) > 40 %}
@@ -32,26 +99,17 @@ package_name:
   default: >-
     {{ module_name | lower | regex_replace('[^a-z0-9]+', '_')
        | regex_replace('^[^a-z]+', '') | regex_replace('_+$', '') }}
-  # Refused: names that would load something else instead of the module (Django's own
-  # apps, the folders every django-starter project has, the tests folder), names of the
-  # packages the module itself depends on (uv can't install a package that needs
-  # itself), and Python keywords. A name that matches a Python standard-library module
-  # (json, email, logging, ...) is caught by the module's first test run
-  # (test_app_loads_from_its_own_package).
+  # Refused: the names in taken_package_names above, and Python keywords. (\Z, not $:
+  # $ would also accept a line break at the end.)
   validator: >-
-    {% if not (package_name | regex_search('^[a-z]([a-z0-9_]*[a-z0-9])?$')) %}
+    {% if not (package_name | regex_search('^[a-z]([a-z0-9_]*[a-z0-9])?\Z')) %}
     Use lowercase letters, digits and underscores, starting with a letter and not
     ending with an underscore.
     {% elif package_name | length > 40 %}
     Use at most 40 characters.
-    {% elif package_name in ['django', 'tests', 'test', 'admin', 'auth', 'contenttypes',
-      'sessions', 'messages', 'staticfiles', 'sites', 'humanize', 'postgres', 'sitemaps',
-      'syndication', 'flatpages', 'redirects', 'gis', 'admindocs', 'accounts', 'config'] %}
-    "{{ package_name }}" is taken by Django, django-starter projects or the test setup:
-    choose another name.
-    {% elif package_name in ['pytest', 'pytest_django', 'pytest_cov', 'coverage', 'ruff',
-      'pre_commit', 'pip_audit', 'psycopg', 'dj_database_url'] %}
-    "{{ package_name }}" is one of the module's own tools: choose another name.
+    {% elif package_name in taken_package_names %}
+    "{{ package_name }}" is already used by Django, by django-starter projects or a
+    package they install, by the module's own tools or by Python: choose another name.
     {% elif package_name in ['and', 'as', 'assert', 'async', 'await', 'break', 'class',
       'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from',
       'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass',
@@ -64,14 +122,14 @@ distribution_name:
   help: Package name you install with `uv add` (e.g. "capy-theme")
   default: "{{ package_name | replace('_', '-') }}"
   validator: >-
-    {% if not (distribution_name | regex_search('^[a-z]([a-z0-9-]*[a-z0-9])?$')) %}
-    Use lowercase letters, digits and hyphens, starting with a letter and not ending
-    with a hyphen.
+    {% if not (distribution_name | regex_search('^[a-z](-?[a-z0-9])*\Z')) %}
+    Use lowercase letters, digits and single hyphens, starting with a letter and not
+    ending with a hyphen.
     {% elif distribution_name | length > 60 %}
     Use at most 60 characters.
-    {% elif distribution_name in ['django', 'pytest', 'pytest-django', 'pytest-cov',
-      'coverage', 'ruff', 'pre-commit', 'pip-audit', 'psycopg', 'dj-database-url'] %}
-    "{{ distribution_name }}" is a package the module itself uses: choose another name.
+    {% elif distribution_name in taken_distribution_names %}
+    "{{ distribution_name }}" is a package django-starter projects or the module itself
+    install: choose another name.
     {% endif %}
 
 description:
@@ -81,8 +139,8 @@ description:
   validator: >-
     {% if not description.strip() or description != description.strip() %}
     Describe the module in one sentence, without spaces at the start or end.
-    {% elif description | regex_search('[\x00-\x1f\x7f-\x9f\u2028\u2029]') %}
-    Use one line, without tabs or other control characters.
+    {% elif description | regex_search(unsafe_characters) %}
+    Use one line, without tabs, invisible or other control characters.
     {% elif description | length > 200 %}
     Use at most 200 characters.
     {% endif %}
@@ -93,8 +151,11 @@ github_owner:
     The GitHub account or organization the module's repository belongs to (the OWNER
     in github.com/OWNER/...). Used in the install commands and the LICENSE. Change it
     later with `copier update --defaults --data github_owner=NEW`.
+  # The pattern counts groups, not characters (it would allow 77), so the length is
+  # checked too.
   validator: >-
-    {% if not (github_owner | regex_search('^[A-Za-z0-9](-?[A-Za-z0-9]){0,38}$')) %}
+    {% if not (github_owner | regex_search('^[A-Za-z0-9](-?[A-Za-z0-9]){0,38}\Z'))
+       or github_owner | length > 39 %}
     Use the GitHub name exactly: letters, digits and single hyphens (not at the start
     or end), up to 39 characters.
     {% endif %}
@@ -113,7 +174,7 @@ copyright_year:
   help: The year in the copyright notice (when the module was first made)
   default: "{{ '%Y' | strftime }}"
   validator: >-
-    {% if not (copyright_year | regex_search('^[0-9]{4}$')) %}
+    {% if not (copyright_year | regex_search('^[0-9]{4}\Z')) %}
     Use a four-digit year.
     {% endif %}
 

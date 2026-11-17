@@ -23,8 +23,8 @@ Copier asks:
 | Question | What it's for |
 | --- | --- |
 | `module_name` | The human-readable name (e.g. "Site Branding"), shown in the admin |
-| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the module's own tools) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
-| `distribution_name` | The name `uv add` installs (e.g. `site-branding`) |
+| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the packages django-starter projects and the module itself install) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
+| `distribution_name` | The name `uv add` installs (e.g. `site-branding`). Names of packages django-starter projects or the module install are refused |
 | `description` | One sentence saying what the module does |
 | `github_owner` | The GitHub account or organization the module will live under. No default: type your own |
 | `license` | MIT, or proprietary (all rights reserved) |
@@ -73,6 +73,25 @@ pre-commit install              # once per clone
 - **Pinned versions** are kept in step by hand: the gitleaks `rev` in both
   `.pre-commit-config.yaml` files and `GITLEAKS_IMAGE` in the template's CI workflow;
   `UV_VERSION` in the workflow and the `uv_build` range in `pyproject.toml.jinja`.
+- **Refused names** (`taken_package_names` and `taken_distribution_names` in
+  `copier.yml`): besides Django's apps and a project's own names, every package a
+  django-starter project and a module install, since a module with the same name would
+  replace it in projects. Check them whenever either template's dependencies change or
+  are upgraded:
+  1. Make a throwaway project from your django-starter working copy
+     (`copier copy --vcs-ref=HEAD /path/to/django-starter /tmp/p`) and a throwaway
+     module as in "Trying changes before a release" above; run `uv sync` in each.
+  2. Compare the package names in each `uv.lock` with `taken_distribution_names`, the
+     top-level names in each `.venv/lib/python3.*/site-packages` (folders and `.py`
+     files, not `*.dist-info`) with `taken_package_names`, and the app labels the
+     project installs (`label = ` in each app's `apps.py`) with `taken_package_names`
+     too.
+  3. Add any name that's missing. Skip the project's and module's own names and names
+     the name check refuses anyway (starting with `_`, or with a dot or capitals, such
+     as `psycopg_binary.libs`). A package a lock lists only for another system (e.g.
+     `colorama` on Windows) isn't in your site-packages: look up its import name on its
+     project page and add that too. Remove a name only when neither template installs
+     it any more.
 - **Releasing:** an issue and a branch, then a pull request into `main`. After it's
   merged, tag `main` and push only the tag:
   `git switch main && git pull`, then `git tag vX.Y.Z` and `git push origin vX.Y.Z`.
