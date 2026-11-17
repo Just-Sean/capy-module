@@ -15,7 +15,7 @@ templates a strict Content Security Policy blocks.
 
 ```bash
 uv tool install copier                                         # once
-copier copy gh:Just-Sean/django-module-starter dj-my-module    # the newest release
+copier copy gh:Just-Sean/django-module-starter my-module       # the newest release
 ```
 
 Copier asks:
@@ -30,7 +30,9 @@ Copier asks:
 | `license` | MIT, or proprietary (all rights reserved) |
 | `copyright_year` | The year in the copyright notice (this year by default) |
 
-Then follow the new module's README, **Develop it**: `git init`, `uv lock`, the commit
+Name the folder (and later the GitHub repository) after `distribution_name`: the
+module's README uses that name in its install commands. Then follow the new module's
+README, **Develop it**: `git init`, `uv lock`, the commit
 check, the first commit, the GitHub repository and its settings. To answer
 everything on the command line (e.g. in a script), give each answer with
 `--data name=value`; `github_owner` and `license` have no default, so `--defaults`

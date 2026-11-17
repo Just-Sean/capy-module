@@ -7,7 +7,7 @@ for projects made from the django-starter template (v1) and working in any Djang
 project. It has no project of its own: its tests run against a tiny stand-in project
 in `tests/`.
 
-**Works with:** Python 3.14+, Django 6.1 (tested; any Django 6 release is accepted),
+**Works with:** Python 3.14+, Django 6.1 or a later 6.x (tested on 6.1),
 and PostgreSQL 18 (what django-starter projects run) or SQLite. CI tests both
 databases on every pull request.
 
@@ -78,17 +78,18 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 - Read settings with the `{{ package_name | upper }}_` prefix and a default (see Settings).
 - **Never add a `check --deploy` warning** to a project (`tests/test_host_rules.py`
   checks this).
-- **Pages** extend the project's `base.html` (django-starter's has `head`, `header`,
-  `content` and `footer` blocks); add stylesheets and scripts in
-  `{% raw %}{% block head %}{{ block.super }}…{% endblock %}{% endraw %}`.
+- **Pages** extend the project's `base.html` (django-starter's has `title`, `head`,
+  `header`, `content` and `footer` blocks); add stylesheets and scripts in
+  `{% raw %}{% block head %}{{ block.super }}…{% endblock %}{% endraw %}`. Template tags
+  that read the database go in a page that extends `base.html` (the project's layout),
+  never in `base.html` itself, so the project's error pages keep working when the
+  database is down.
 - **No inline code**: projects enforce a strict Content Security Policy. Put CSS and
   JavaScript in static files; if inline code is unavoidable, give the tag
   `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"`. Never `style="…"`, `onclick=` or
   `javascript:` links, and nothing from other sites (CDNs, web fonts) without the
   project allowing it (`tests/test_host_rules.py` checks the templates).
-- **Uploads** are private by default in django-starter projects: use the project's
-  default storage for files only some people may see, and its `public_storage` for
-  files anyone may (pictures on public pages).
+- **Uploads:** see [Security](#security).
 - **Slow work** (emails, file processing, calls to other services) goes to a
   background job with Django's Tasks API; **email** goes through `django.core.mail`.
 
@@ -104,8 +105,37 @@ Rules for the module's code. The project trusts whatever the module does, so:
 - **Database:** the ORM or parameterized queries only, never SQL built from strings.
 - **Templates:** keep auto-escaping; never `|safe` or `mark_safe` on anything a user
   typed.
+- **Changes only on POST:** a view that changes anything refuses GET
+  (`@require_POST`), so a link or an image on another site can't trigger it. Check
+  redirect targets such as `next` with `url_has_allowed_host_and_scheme` (no open
+  redirects).
+- **Logins:** never check passwords or tokens yourself; use
+  `django.contrib.auth.authenticate(request, ...)`, so the project's login rate
+  limiting (django-axes) counts every attempt.
 - **Uploads:** check type and size, never trust the file's name, store under a
-  `{{ package_name }}/` folder, and refuse names with `..` (path traversal).
+  `{{ package_name }}/` folder with a random part per file, and refuse names with `..`
+  (path traversal). In django-starter projects the default storage is **private**:
+  its files are served only through the project's own view, to whoever the project's
+  `can_download()` allows (by default, active staff). So a module that keeps private
+  files either says in this README what projects should allow in `can_download()`,
+  or serves them through its own view that checks permission. Files anyone may see
+  (pictures on public pages) go in the project's "public" storage, chosen without
+  importing project code (a function keeps the module's migrations the same in every
+  project):
+
+  ```python
+  from django.conf import settings
+  from django.core.files.storage import default_storage, storages
+
+
+  def public_storage():
+      # The project's public storage (django-starter projects have one), else the default.
+      return storages["public"] if "public" in settings.STORAGES else default_storage
+  ```
+
+  and `models.ImageField(storage=public_storage, ...)`.
+- **Background jobs:** pass IDs, never secrets, tokens or personal data, as arguments:
+  they're stored in the database and shown in the admin.
 - **Secrets:** never in code. A secret the module needs comes from a project setting
   (read from the environment there); fail with a clear error if it's missing.
 - **Calls to other services:** HTTPS only, certificate checks on, and a timeout.
@@ -199,11 +229,16 @@ To check what the package will ship (CI does this too): `uv build`, then
 Nothing is pushed straight to `main`:
 
 1. Open an issue for the release and a branch for it. Change `version` in
-   `pyproject.toml` and add the version at the top of `CHANGELOG.md`: what changed, and
-   what a project must do when it upgrades (newest version first).
-2. Install the branch into a project made from django-starter (production-like) and
-   check it works there, including `uv run python manage.py check --deploy` with
-   production settings.
+   `pyproject.toml`, run `uv lock` (CI refuses a lock file that doesn't match), and add
+   the version at the top of `CHANGELOG.md`: what changed, and what a project must do
+   when it upgrades (newest version first). Commit `pyproject.toml`, `uv.lock` and
+   `CHANGELOG.md`.
+2. Try the branch in a project made from django-starter: install your working copy
+   (`uv add --editable ../{{ distribution_name }}`, as in
+   [Add it to a project](#add-it-to-a-project)), run the project's tests (they include
+   `check --deploy` with production settings), and try it in the project's local
+   production run (its README, "Production"). Switch the project back to the tag
+   afterwards.
 3. Open a pull request; CI must pass (both databases, the package check). Merge it.
 4. Tag the merged `main` and push only the tag:
 
@@ -225,7 +260,8 @@ copier update
 
 Copier re-applies the starter's changes and asks about any conflicts (keep your own
 changes, and the newer of two pinned versions). To change the GitHub owner (or the
-license or copyright year) the module was made with:
+license or copyright year) the module was made with (this also brings in the
+starter's newest release, as `copier update` always does):
 
 ```bash
 copier update --defaults --data github_owner=NEW-OWNER
