@@ -27,12 +27,18 @@ PRODUCTION_SECURITY = {
 CLICKJACKING_MIDDLEWARE = "django.middleware.clickjacking.XFrameOptionsMiddleware"
 
 # Inline code a strict Content Security Policy blocks: <script> or <style> without a
-# nonce (or a src), style="..." attributes, onclick=-style handlers, javascript: links.
+# real nonce (or a src), style="..." attributes, onclick=-style handlers and javascript:
+# links. An attribute counts after a space or "/" (HTML allows both), not as part of a
+# longer name such as data-src.
+ATTRIBUTE = r"(?<![\w-])"
+HAS_VALUE = r"\s*=\s*[\"']?[^\s\"'>]"
 BLOCKED = {
-    "inline script": re.compile(r"<script(?![^>]*\b(?:src|nonce)=)[^>]*>", re.IGNORECASE),
-    "inline style": re.compile(r"<style(?![^>]*\bnonce=)[^>]*>", re.IGNORECASE),
-    "style attribute": re.compile(r"\sstyle\s*=", re.IGNORECASE),
-    "event handler": re.compile(r"\son[a-z]+\s*=", re.IGNORECASE),
+    "inline script": re.compile(
+        rf"<script(?![^>]*{ATTRIBUTE}(?:src|nonce){HAS_VALUE})[^>]*>", re.IGNORECASE
+    ),
+    "inline style": re.compile(rf"<style(?![^>]*{ATTRIBUTE}nonce{HAS_VALUE})[^>]*>", re.IGNORECASE),
+    "style attribute": re.compile(r"<[^>]*?[\s/]style\s*=", re.IGNORECASE),
+    "event handler": re.compile(r"<[^>]*?[\s/]on[a-z]+\s*=", re.IGNORECASE),
     "javascript: link": re.compile(r"javascript:", re.IGNORECASE),
 }
 
@@ -64,7 +70,24 @@ def test_templates_have_nothing_a_strict_csp_blocks():
 
 def test_the_csp_check_finds_blocked_code():
     # So an empty result above means "nothing blocked", not "the check finds nothing".
-    page = '<div style="x" onclick="go()"><script>1</script><a href="javascript:x">'
-    found = set(blocked_in(page))
-    assert found == {"inline script", "style attribute", "event handler", "javascript: link"}
-    assert blocked_in('<script nonce="{{ csp_nonce }}">1</script>') == {}
+    blocked = [
+        ("<script>alert(1)</script>", "inline script"),
+        ('<script data-src="x.js">alert(1)</script>', "inline script"),
+        ('<script nonce="">alert(1)</script>', "inline script"),
+        ("<style>p { color: red }</style>", "inline style"),
+        ('<p style="color: red">', "style attribute"),
+        ('<div/style="x">', "style attribute"),
+        ('<button onclick="go()">', "event handler"),
+        ('<div/onclick = "go()">', "event handler"),
+        ('<a href="javascript:go()">', "javascript: link"),
+    ]
+    for html, kind in blocked:
+        assert kind in blocked_in(html), html
+    allowed = [
+        '<script nonce="{{ csp_nonce }}">1</script>',
+        '<script src="/static/x.js" defer></script>',
+        '<style nonce="{{ csp_nonce }}">p {}</style>',
+        "<p>Turn this on = yes</p>",
+    ]
+    for html in allowed:
+        assert blocked_in(html) == {}, html

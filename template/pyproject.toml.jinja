@@ -1,7 +1,7 @@
 [project]
 name = "{{ distribution_name }}"
 version = "0.1.0"
-description = "{{ description_quoted }}"
+description = "{{ description | replace('\\', '\\\\') | replace('"', '\\"') }}"
 readme = "README.md"
 {% if license == "MIT" %}license = "MIT"{% else %}license = "LicenseRef-Proprietary"{% endif %}
 license-files = ["LICENSE"]
