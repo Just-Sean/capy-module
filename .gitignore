@@ -2,6 +2,10 @@
 .venv/
 __pycache__/
 *.py[cod]
+dist/
+.coverage
+.coverage.*
+*.sqlite3*
 
 # Secrets and keys never go in git. `copier copy --vcs-ref=HEAD` also copies files
 # that aren't committed, so anything not ignored here could end up in a new module.

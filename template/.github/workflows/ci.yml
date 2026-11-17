@@ -106,17 +106,24 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
       - run: uv build --wheel --out-dir dist
-      # Fails if the wheel holds anything besides the module's own folder and its
-      # metadata (tests, settings or stray files would be installed into projects).
+      # Fails if the wheel holds anything besides the module's own package and its
+      # metadata: tests (with their settings), hidden files or anything at the top
+      # level would be installed into every project.
       - name: Check the wheel's contents
         run: |
           python3 - <<'EOF'
-          import glob, zipfile
+          import glob, tomllib, zipfile
+          package = tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["build-backend"]["module-name"]
           (wheel,) = glob.glob("dist/*.whl")
-          names = zipfile.ZipFile(wheel).namelist()
-          tops = sorted({name.split("/")[0] for name in names if not name.split("/")[0].endswith(".dist-info")})
-          print("The wheel holds:", tops)
-          assert len(tops) == 1 and all("/" in name for name in names), "Only the module's own folder may ship"
+          names = [n for n in zipfile.ZipFile(wheel).namelist() if not n.split("/")[0].endswith(".dist-info")]
+          print("The wheel holds:", *names, sep="\n  ")
+          wrong = [
+              n for n in names
+              if n.split("/")[0] != package
+              or "/tests/" in n or "/test_" in n
+              or n.rsplit("/", 1)[-1].startswith(".")
+          ]
+          assert not wrong, f"Only the {package} package may ship, without tests: {wrong}"
           EOF
 
   secrets:

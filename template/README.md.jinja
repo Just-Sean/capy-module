@@ -66,6 +66,22 @@ Dependabot (`.github/dependabot.yml`) opens pull requests for updates; also turn
 "Dependabot alerts" and "Dependabot security updates" in the repository's
 Settings > Code security.
 
+The commit check only scans what's being committed. To scan every file and the whole
+history for secrets (needs Docker; the every-file scan also reads files git ignores,
+like a local `.env`, so a finding there may never have been committed):
+
+```bash
+docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f dir /repo --redact   # every file
+docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --redact   # the whole history
+```
+
+**Updated by hand** (Dependabot doesn't touch these), keeping each pair in step:
+
+- **uv:** `UV_VERSION` in `.github/workflows/ci.yml` and the `uv_build` range in
+  `pyproject.toml` (`>=0.12,<0.13` goes with uv 0.12).
+- **gitleaks:** `rev` in `.pre-commit-config.yaml` (`uv run pre-commit autoupdate --freeze`)
+  and `GITLEAKS_IMAGE` in `.github/workflows/ci.yml`, plus the two commands above.
+
 To run the tests on Postgres here too (CI always does), with a Postgres that has that
 login and database running:
 
