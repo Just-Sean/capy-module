@@ -100,10 +100,12 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
   block a project's template fills in, HTML built in Python (`format_html`), or
   markup opened in one `{% raw %}{% if %}{% endraw %}` branch and closed in another, so
   keep the same rules there. It reports a full URL to the project's own site as another
-  site: use a path (`/x/`) or `{% raw %}{% url %}{% endraw %}`. To comment code out, use
+  site (use a path, `/x/`, or `{% raw %}{% url %}{% endraw %}`), and a nonce'd script
+  whose code contains the text `<script` or `<style`. To comment code out, use
   `{% raw %}{% comment %}{% endraw %}`, a one-line `{% raw %}{# #}{% endraw %}` or an
   HTML comment: Django prints a `{% raw %}{# #}{% endraw %}` that spans lines as text,
-  and the check reads Jinja templates the same way.
+  and the check reads Jinja templates the same way, so keep `{% raw %}{# #}{% endraw %}`
+  on one line in Jinja templates too.
 - **HTML emails** go in `templates/{{ package_name }}/emails/` (or
   `jinja2/{{ package_name }}/emails/`): they need inline styles and full image URLs,
   and the site's policy doesn't apply to them, so the check skips that folder. Nothing

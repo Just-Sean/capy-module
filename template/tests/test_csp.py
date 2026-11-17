@@ -14,15 +14,18 @@ manifests; forms post and pings go only to the site. So these are blocked:
 - frames, video, audio, objects, embeds and manifests
 
 Checked: the module's HTML, SVG, XML and Jinja templates (TEMPLATE_SUFFIXES) under
-templates/ and jinja2/, except HTML emails in templates/<package>/emails/ (emails aren't
-web pages, so the site's policy doesn't apply to them).
+templates/ and jinja2/, except HTML emails in templates/<package>/emails/ and
+jinja2/<package>/emails/ (emails aren't web pages, so the site's policy doesn't apply
+to them).
 
 This is a safety net that reads template source, not a browser. It can't see CSS and
 JavaScript files, what inline code loads, what template variables hold, a block a
 project's template fills in, HTML built in Python, code that needs eval (htmx's hx-on,
 Alpine's x-on), or markup opened in one {% if %} branch and closed in another (except
 <script> and <style>). It reports an absolute URL to the project's own site as another
-site. The project's own CSP is what finally blocks these in a browser.
+site, and a nonce'd script whose code contains the text "<script" or "<style" (it can't
+tell that text from a tag opened in another branch). The project's own CSP is what
+finally blocks these in a browser.
 
 Each template is read the way a browser reads the page Django renders: Django's
 template code first (a tag, variable or comment counts only if it fits on one line, as
