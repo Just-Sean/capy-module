@@ -117,10 +117,13 @@ jobs:
           (wheel,) = glob.glob("dist/*.whl")
           names = [n for n in zipfile.ZipFile(wheel).namelist() if not n.split("/")[0].endswith(".dist-info")]
           print("The wheel holds:", *names, sep="\n  ")
+          def is_test(name):
+              parts = name.split("/")
+              return parts[1:2] == ["tests"] or parts[-1] == "conftest.py" or (
+                  parts[-1].startswith("test_") and parts[-1].endswith(".py"))
           wrong = [
               n for n in names
-              if n.split("/")[0] != package
-              or "/tests/" in n or "/test_" in n
+              if n.split("/")[0] != package or is_test(n)
               or n.rsplit("/", 1)[-1].startswith(".")
           ]
           assert not wrong, f"Only the {package} package may ship, without tests: {wrong}"

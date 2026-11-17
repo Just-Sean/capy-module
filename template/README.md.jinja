@@ -88,7 +88,8 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
   JavaScript in static files; if inline code is unavoidable, give the tag
   `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"`. Never `style="…"`, `onclick=` or
   `javascript:` links, and nothing from other sites (CDNs, web fonts) without the
-  project allowing it (`tests/test_host_rules.py` checks the templates).
+  project allowing it. `tests/test_host_rules.py` checks every template; it can't see
+  CSS files or HTML built in Python (`format_html`), so keep the same rules there.
 - **Uploads:** see [Security](#security).
 - **Slow work** (emails, file processing, calls to other services) goes to a
   background job with Django's Tasks API; **email** goes through `django.core.mail`.

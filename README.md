@@ -23,7 +23,7 @@ Copier asks:
 | Question | What it's for |
 | --- | --- |
 | `module_name` | The human-readable name (e.g. "Site Branding"), shown in the admin |
-| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the module's own tools) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
+| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the packages django-starter projects and the module itself install) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
 | `distribution_name` | The name `uv add` installs (e.g. `site-branding`) |
 | `description` | One sentence saying what the module does |
 | `github_owner` | The GitHub account or organization the module will live under. No default: type your own |
@@ -73,6 +73,10 @@ pre-commit install              # once per clone
 - **Pinned versions** are kept in step by hand: the gitleaks `rev` in both
   `.pre-commit-config.yaml` files and `GITLEAKS_IMAGE` in the template's CI workflow;
   `UV_VERSION` in the workflow and the `uv_build` range in `pyproject.toml.jinja`.
+- **Refused names** (`taken_package_names` and `taken_distribution_names` in
+  `copier.yml`) list every package in a django-starter project's `uv.lock` and the
+  module's own. When either adds a dependency, add its names there: a module with the
+  same name would overwrite it in projects.
 - **Releasing:** an issue and a branch, then a pull request into `main`. After it's
   merged, tag `main` and push only the tag:
   `git switch main && git pull`, then `git tag vX.Y.Z` and `git push origin vX.Y.Z`.
