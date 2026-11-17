@@ -118,9 +118,12 @@ jobs:
           names = [n for n in zipfile.ZipFile(wheel).namelist() if not n.split("/")[0].endswith(".dist-info")]
           print("The wheel holds:", *names, sep="\n  ")
           def is_test(name):
-              parts = name.split("/")
-              return parts[1:2] == ["tests"] or parts[-1] == "conftest.py" or (
-                  parts[-1].startswith("test_") and parts[-1].endswith(".py"))
+              # A tests/ folder anywhere in the package, Django's tests.py, conftest.py,
+              # and the file names pytest collects (test_*.py, *_test.py). Whole names
+              # only, so a test_data/ folder or a test_page.html template can ship.
+              folders, file = name.split("/")[1:-1], name.split("/")[-1]
+              return "tests" in folders or file in ("tests.py", "conftest.py") or (
+                  file.endswith(".py") and (file.startswith("test_") or file.endswith("_test.py")))
           wrong = [
               n for n in names
               if n.split("/")[0] != package or is_test(n)

@@ -87,9 +87,15 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 - **No inline code**: projects enforce a strict Content Security Policy. Put CSS and
   JavaScript in static files; if inline code is unavoidable, give the tag
   `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"`. Never `style="…"`, `onclick=` or
-  `javascript:` links, and nothing from other sites (CDNs, web fonts) without the
-  project allowing it. `tests/test_host_rules.py` checks every template; it can't see
-  CSS files or HTML built in Python (`format_html`), so keep the same rules there.
+  `javascript:` links; nothing from other sites (CDNs, web fonts) or `data:` URLs
+  except images, and no frames, video, audio, embedded objects or manifests (a
+  django-starter project's policy blocks them all). `tests/test_host_rules.py` checks
+  the module's templates (`.html`, `.htm`, `.svg`, `.xml` and Jinja files under
+  `templates/` and `jinja2/`) against that policy. It can't see CSS or JavaScript
+  files, what inline code loads, or HTML built in Python (`format_html`), so keep the
+  same rules there. A comment that hides code must be `{% raw %}{% comment %}{% endraw %}`
+  or a one-line `{% raw %}{# #}{% endraw %}`: Django prints a `{% raw %}{# #}{% endraw %}`
+  that spans lines.
 - **Uploads:** see [Security](#security).
 - **Slow work** (emails, file processing, calls to other services) goes to a
   background job with Django's Tasks API; **email** goes through `django.core.mail`.
