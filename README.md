@@ -77,10 +77,17 @@ pre-commit install              # once per clone
   `copier.yml`): besides Django's apps and a project's own names, every package a
   django-starter project and a module install, since a module with the same name would
   replace it in projects. Check them whenever either template's dependencies change or
-  are upgraded: make a throwaway project and module, run `uv sync` in each, then compare
-  the package names in each `uv.lock` with `taken_distribution_names`, and the top-level
-  names in each `.venv/lib/python3.*/site-packages` (folders and `.py` files, not
-  `*.dist-info`) with `taken_package_names`.
+  are upgraded:
+  1. Make a throwaway project from your django-starter working copy
+     (`copier copy --vcs-ref=HEAD /path/to/django-starter /tmp/p`) and a throwaway
+     module as in "Trying changes before a release" above; run `uv sync` in each.
+  2. Compare the package names in each `uv.lock` with `taken_distribution_names`, and
+     the top-level names in each `.venv/lib/python3.*/site-packages` (folders and
+     `.py` files, not `*.dist-info`) with `taken_package_names`.
+  3. Add any name that's missing. Skip the project's and module's own names and names
+     starting with `_` (the name check refuses those anyway). Keep names a lock lists
+     for other systems (e.g. `colorama` on Windows); remove a name only when neither
+     template installs it any more.
 - **Releasing:** an issue and a branch, then a pull request into `main`. After it's
   merged, tag `main` and push only the tag:
   `git switch main && git pull`, then `git tag vX.Y.Z` and `git push origin vX.Y.Z`.

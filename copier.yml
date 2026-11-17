@@ -12,16 +12,17 @@ _subdirectory: template
 # django-starter project's login rate limiting. A distribution name clash makes uv
 # treat the module and the package as one. A Python standard-library name (json,
 # email, ...) is caught by the module's first test run
-# (test_app_loads_from_its_own_package). How to keep these lists current: the
-# starter's README, "Working on the starter".
+# (test_app_loads_from_its_own_package). How to keep these lists current: this
+# repository's README, "Working on the starter".
 taken_package_names:
   type: yaml
   when: false
   default: [
     # Django's own apps; what every django-starter project has (its folders, manage.py,
-    # whitenoise's runserver_nostatic app); the module's tests folder; "migrations",
-    # which the module's lint and coverage settings skip; names Python itself imports
-    # at startup
+    # whitenoise's runserver_nostatic app); test folder names ("test" is also a
+    # standard-library package, refused here too because it's so common);
+    # "migrations", which the module's lint and coverage settings skip; names Python
+    # itself imports at startup
     django, admin, auth, contenttypes, sessions, messages, staticfiles, sites, humanize,
     postgres, sitemaps, syndication, flatpages, redirects, gis, admindocs, accounts,
     config, manage, runserver_nostatic, tests, test, migrations, sitecustomize,
@@ -31,9 +32,9 @@ taken_package_names:
     charset_normalizer, colorama, coverage, cyclonedx, dateutil, defusedxml, distlib,
     django_stubs_ext, django_tasks, django_tasks_db, dotenv, environ, filelock, gunicorn,
     identify, idna, iniconfig, jmespath, license_expression, markdown_it, mdurl, msgpack,
-    nodeenv, packageurl, packaging, packaging_legacy_version, pip, pip_api, pip_audit, pip_requirements_parser,
-    platformdirs, pluggy, pre_commit, psycopg, psycopg_binary, py_serializable,
-    serializable, py, pycparser, pygments, pyparsing, pytest, pytest_cov, pytest_django,
+    nodeenv, packageurl, packaging, packaging_legacy_version, pip, pip_api, pip_audit,
+    pip_requirements_parser, platformdirs, pluggy, pre_commit, psycopg, psycopg_binary,
+    py_serializable, serializable, py, pycparser, pygments, pyparsing, pytest, pytest_cov, pytest_django,
     pytest_env, python_discovery, redis, requests, rich, ruff, s3transfer, six,
     sortedcontainers, sqlparse, storages, tomli, tomli_w, typing_extensions, tzdata,
     urllib3, virtualenv, whitenoise, yaml,
@@ -61,13 +62,14 @@ taken_distribution_names:
 # characters (line breaks, tabs and the like) would break the generated files; invisible
 # ones (zero-width spaces, text-direction marks and overrides, invisible fillers, tag
 # characters: Unicode's "format" characters) would make the generated code read
-# differently from what it does. Allowed: the zero-width joiner and non-joiner and
-# variation selectors, which only join letters or emoji (Persian needs them).
+# differently from what it does; so would U+2800, a blank-looking Braille pattern.
+# Allowed: the zero-width joiner and non-joiner, which join letters or emoji (Persian
+# needs them), and variation selectors, which pick how an emoji is drawn.
 unsafe_characters:
   type: str
   when: false
   default: >-
-    [\x00-\x1f\x7f-\x9f\u00ad\u034f\u0600-\u0605\u061c\u06dd\u070f\u0890\u0891\u08e2\u115f\u1160\u17b4\u17b5\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u206f\u3164\ufeff\uffa0\ufff9-\ufffb\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f]
+    [\x00-\x1f\x7f-\x9f\u00ad\u034f\u0600-\u0605\u061c\u06dd\u070f\u0890\u0891\u08e2\u115f\u1160\u17b4\u17b5\u180e\u200b\u200e\u200f\u2028-\u202e\u2060-\u206f\u2800\u3164\ufeff\uffa0\ufff9-\ufffb\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f]
 
 module_name:
   type: str
@@ -118,9 +120,9 @@ distribution_name:
   help: Package name you install with `uv add` (e.g. "capy-theme")
   default: "{{ package_name | replace('_', '-') }}"
   validator: >-
-    {% if not (distribution_name | regex_search('^[a-z]([a-z0-9-]*[a-z0-9])?\Z')) %}
-    Use lowercase letters, digits and hyphens, starting with a letter and not ending
-    with a hyphen.
+    {% if not (distribution_name | regex_search('^[a-z](-?[a-z0-9])*\Z')) %}
+    Use lowercase letters, digits and single hyphens, starting with a letter and not
+    ending with a hyphen.
     {% elif distribution_name | length > 60 %}
     Use at most 60 characters.
     {% elif distribution_name in taken_distribution_names %}
