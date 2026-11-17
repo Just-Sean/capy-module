@@ -27,14 +27,16 @@ taken_package_names:
     postgres, sitemaps, syndication, flatpages, redirects, gis, admindocs, accounts,
     config, manage, runserver_nostatic, tests, test, migrations, sitecustomize,
     usercustomize,
-    # what django-starter projects install (top-level import names)
+    # what django-starter projects install (top-level import names, and app labels
+    # that differ from them)
     argon2, asgiref, axes, boolean, boto3, botocore, cachecontrol, certifi, cffi, cfgv,
     charset_normalizer, colorama, coverage, cyclonedx, dateutil, defusedxml, distlib,
-    django_stubs_ext, django_tasks, django_tasks_db, dotenv, environ, filelock, gunicorn,
-    identify, idna, iniconfig, jmespath, license_expression, markdown_it, mdurl, msgpack,
-    nodeenv, packageurl, packaging, packaging_legacy_version, pip, pip_api, pip_audit,
-    pip_requirements_parser, platformdirs, pluggy, pre_commit, psycopg, psycopg_binary,
-    py_serializable, serializable, py, pycparser, pygments, pyparsing, pytest, pytest_cov, pytest_django,
+    django_stubs_ext, django_tasks, django_tasks_db, django_tasks_database, dotenv,
+    environ, filelock, gunicorn, identify, idna, iniconfig, jmespath,
+    license_expression, markdown_it, mdurl, msgpack, nodeenv, packageurl, packaging,
+    packaging_legacy_version, pip, pip_api, pip_audit, pip_requirements_parser,
+    platformdirs, pluggy, pre_commit, psycopg, psycopg_binary, py_serializable,
+    serializable, py, pycparser, pygments, pyparsing, pytest, pytest_cov, pytest_django,
     pytest_env, python_discovery, redis, requests, rich, ruff, s3transfer, six,
     sortedcontainers, sqlparse, storages, tomli, tomli_w, typing_extensions, tzdata,
     urllib3, virtualenv, whitenoise, yaml,

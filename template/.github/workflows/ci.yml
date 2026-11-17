@@ -118,15 +118,16 @@ jobs:
           names = [n for n in zipfile.ZipFile(wheel).namelist() if not n.split("/")[0].endswith(".dist-info")]
           print("The wheel holds:", *names, sep="\n  ")
           def is_test(name):
-              # A tests/ folder in the package's code (one under templates/ or static/
-              # is page content), Django's tests.py and test.py, conftest.py, and the
-              # file names pytest collects (test_*.py, *_test.py). Whole names only, so a
-              # test_data/ folder or a test_page.html template can ship.
+              # A tests/ or test/ folder in the package's code (one under templates/,
+              # jinja2/ or static/ is page content), Django's tests.py and test.py,
+              # conftest.py, and the file names pytest collects (test_*.py, *_test.py).
+              # Whole names only, so a test_data/ folder or a test_page.html can ship.
               folders, file = name.split("/")[1:-1], name.split("/")[-1]
-              in_code = not {"templates", "static", "jinja2"} & set(folders)
-              return ("tests" in folders and in_code) or file in (
-                  "tests.py", "test.py", "conftest.py") or (file.endswith(".py") and (
-                  file.startswith("test_") or file.endswith("_test.py")))
+              in_code = not {"templates", "jinja2", "static"} & set(folders)
+              test_folder = in_code and bool({"tests", "test"} & set(folders))
+              test_file = file in ("tests.py", "test.py", "conftest.py") or (
+                  file.endswith(".py") and (file.startswith("test_") or file.endswith("_test.py")))
+              return test_folder or test_file
           def is_hidden(name):
               return any(part.startswith(".") for part in name.split("/"))
           wrong = [
