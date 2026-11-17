@@ -184,10 +184,14 @@ uv run django-admin makemigrations {{ package_name }} --settings=tests.settings 
 
 ## Develop it
 
-Once, right after making the module:
+You need uv 0.12: the module requires that version line, the same one CI uses, so
+`uv.lock` is always written the way CI reads it. If uv came from its standalone
+installer, `uv self update 0.12.24` switches to it (down from a newer uv too);
+otherwise install 0.12.24 the way you installed uv. Once, right after making the
+module:
 
 ```bash
-git init                   # a new module isn't a git repo yet
+git init -b main           # a new module isn't a git repo yet (CI and releases use main)
 uv lock                    # pins every package version in uv.lock: commit it (CI needs it)
 uv sync                    # installs Python, Django and the test tools
 uv run pre-commit install  # turns on the checks that run on every commit
@@ -230,8 +234,9 @@ docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b
 
 **Updated by hand** (Dependabot doesn't touch these), keeping each pair in step:
 
-- **uv:** `UV_VERSION` in `.github/workflows/ci.yml` and the `uv_build` range in
-  `pyproject.toml` (`>=0.12,<0.13` goes with uv 0.12).
+- **uv:** `UV_VERSION` in `.github/workflows/ci.yml`, and in `pyproject.toml` both
+  `required-version` and the `uv_build` range (`>=0.12,<0.13` goes with uv 0.12),
+  plus the `uv self update` command under Develop it.
 - **gitleaks:** `rev` in `.pre-commit-config.yaml` (`uv run pre-commit autoupdate --freeze`)
   and `GITLEAKS_IMAGE` in `.github/workflows/ci.yml`, plus the two commands above.
 

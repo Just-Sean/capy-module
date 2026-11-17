@@ -9,10 +9,11 @@ Postgres (for Postgres-only features), set DATABASE_URL:
 """
 
 import os
+import secrets
 
 import dj_database_url
 
-SECRET_KEY = "tests-only-not-secret"
+SECRET_KEY = secrets.token_urlsafe(50)  # a new one every run: nothing to keep secret
 DEBUG = False
 ALLOWED_HOSTS = ["testserver"]
 

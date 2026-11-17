@@ -25,7 +25,7 @@ coverage.xml
 id_rsa*
 id_ecdsa*
 id_ed25519*
-!*.pub
+!id_*.pub
 
 # A local database and uploads from trying the module out, in the module's own folder
 # only (an app may ship a folder of its own called media/).

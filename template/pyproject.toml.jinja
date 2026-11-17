@@ -19,6 +19,12 @@ classifiers = [
 requires = ["uv_build>=0.12,<0.13"]
 build-backend = "uv_build"
 
+[tool.uv]
+# The uv versions that may work on the module: the same line as CI (UV_VERSION in
+# .github/workflows/ci.yml), so uv.lock is always written the way CI reads it. A
+# different uv stops with a message saying which version to install.
+required-version = ">=0.12,<0.13"
+
 [tool.uv.build-backend]
 module-name = "{{ package_name }}"   # the folder under src/
 
@@ -55,7 +61,7 @@ extend-exclude = ["*/migrations/*"]
 select = ["E", "W", "F", "I", "B", "S", "DJ", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["S101", "S105", "S106"]
+"tests/*.py" = ["S101"]   # pytest's checks are plain `assert` statements
 
 # Test coverage, measured with `uv run pytest --cov` (pytest-cov).
 [tool.coverage.run]

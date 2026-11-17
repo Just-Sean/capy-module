@@ -13,8 +13,18 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels the run for the older one. Every push to main
+# gets a group of its own, so each of its runs finishes.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 env:
-  UV_VERSION: "0.12.5"
+  # The uv line the module requires (required-version in pyproject.toml); keep them in
+  # step.
+  UV_VERSION: "0.12.24"
+  # Every uv command refuses a uv.lock that doesn't match pyproject.toml.
+  UV_LOCKED: "1"
   # Same gitleaks version as .pre-commit-config.yaml (keep them in step).
   GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
 
@@ -37,15 +47,20 @@ jobs:
       - run: uv run ruff format --check .
 
   test:
-    name: Tests (${{ matrix.database }})
+    name: Tests (${{ matrix.database }}, ${{ matrix.versions }} versions)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        # The databases the module supports: PostgreSQL 18 (what projects made from
-        # django-starter run) and SQLite.
-        database: [sqlite, postgres]
+        # Each supported database (PostgreSQL 18, what django-starter projects run, and
+        # SQLite) with the locked versions, plus SQLite once with the lowest version
+        # pyproject.toml allows for each direct dependency (e.g. Django 6.1 while
+        # uv.lock has a newer 6.x), since projects may run any of them.
+        include:
+          - {database: sqlite, versions: locked}
+          - {database: postgres, versions: locked}
+          - {database: sqlite, versions: lowest}
     services:
       postgres:
         # Only started for the Postgres run (an empty image means no service).
@@ -57,7 +72,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U app"
+          --health-cmd "pg_isready -U app -h 127.0.0.1"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -68,14 +83,39 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           version: ${{ env.UV_VERSION }}
-      - run: uv sync --locked
+          # The lowest run gets a cache of its own, so what it downloads never reaches
+          # the other jobs.
+          cache-suffix: ${{ matrix.versions }}
+      - if: matrix.versions == 'locked'
+        run: uv sync --locked
+      # Re-resolves to the lowest allowed versions (uv.lock is only changed on the
+      # runner, never committed). Packages it picks without uv.lock must be a week old,
+      # like Dependabot's wait, so a release published minutes ago can't run here.
+      - if: matrix.versions == 'lowest'
+        env:
+          UV_LOCKED: "false"
+          UV_EXCLUDE_NEWER: "7 days"
+        run: uv sync --resolution lowest-direct
+      # The tests log in as a role like the login a django-starter project's app uses:
+      # not a superuser, so a migration that needs one fails here first. CREATEDB only so
+      # pytest-django can make its test database.
+      - name: Create a login like a project's
+        if: matrix.database == 'postgres'
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: >-
+          docker exec "$POSTGRES_CONTAINER" psql -U app -d module_tests -v ON_ERROR_STOP=1
+          -c "CREATE ROLE module LOGIN PASSWORD 'module'
+          NOSUPERUSER CREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
       # -rs lists any skipped tests, with their reasons, at the end of the log.
       - name: Tests with coverage (fails below 80%)
+        env:
+          DATABASE: ${{ matrix.database }}
         run: |
-          if [ "${{ matrix.database }}" = "postgres" ]; then
-            export DATABASE_URL=postgres://app:app@localhost:5432/module_tests
+          if [ "$DATABASE" = "postgres" ]; then
+            export DATABASE_URL=postgres://module:module@localhost:5432/module_tests
           fi
-          uv run pytest --cov -rs
+          uv run --no-sync pytest --cov -rs
 
   audit:
     name: Dependency vulnerabilities (pip-audit)
