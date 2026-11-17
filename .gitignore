@@ -19,4 +19,4 @@ dist/
 id_rsa*
 id_ecdsa*
 id_ed25519*
-!*.pub
+!id_*.pub
