@@ -66,13 +66,14 @@ pre-commit install              # once per clone
 - **Trying changes before a release:** make a throwaway module from your working copy,
   uncommitted changes included:
   `copier copy --vcs-ref=HEAD --data github_owner=me --data license=MIT /path/to/django-module-starter /tmp/try-it`,
-  then run its checks (`git init`, `uv lock`, `uv run pytest --cov`, `uv run ruff check .`,
-  `uv build`). Never use `--vcs-ref=HEAD` for a real module: Copier records an
+  then run its checks with uv 0.12, which modules require (`git init -b main`,
+  `uv lock`, `uv run pytest --cov`, `uv run ruff check .`, `uv build`). Never use `--vcs-ref=HEAD` for a real module: Copier records an
   unreleased version and later refuses to update from it. The `.gitignore` keeps
   secrets and test output out of the copy.
 - **Pinned versions** are kept in step by hand: the gitleaks `rev` in both
   `.pre-commit-config.yaml` files and `GITLEAKS_IMAGE` in the template's CI workflow;
-  `UV_VERSION` in the workflow and the `uv_build` range in `pyproject.toml.jinja`.
+  `UV_VERSION` in the workflow, and `required-version` and the `uv_build` range in
+  `pyproject.toml.jinja`.
 - **Refused names** (`taken_package_names` and `taken_distribution_names` in
   `copier.yml`): besides Django's apps and a project's own names, every package a
   django-starter project and a module install, since a module with the same name would
