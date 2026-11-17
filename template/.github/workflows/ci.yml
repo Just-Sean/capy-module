@@ -1,0 +1,138 @@
+# Runs the same checks as the pre-commit hooks and the README on GitHub, for every
+# pull request and push to main, so every pull request shows whether they pass (the
+# hooks can be skipped locally). Results: the pull request's "Checks" tab.
+# Needs uv.lock committed (`uv lock`, see the README).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The workflow only reads the repository.
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.12.5"
+  # Same gitleaks version as .pre-commit-config.yaml (keep them in step).
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # Actions are pinned to commit hashes (tags can be moved); the comment says the
+      # version. Dependabot keeps them up to date.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  test:
+    name: Tests (${{ matrix.database }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # The databases the module supports: PostgreSQL 18 (what projects made from
+        # django-starter run) and SQLite.
+        database: [sqlite, postgres]
+    services:
+      postgres:
+        # Only started for the Postgres run (an empty image means no service).
+        image: ${{ matrix.database == 'postgres' && 'postgres:18-trixie' || '' }}
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app  # a throwaway database that only exists for this job
+          POSTGRES_DB: module_tests
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked
+      # -rs lists any skipped tests, with their reasons, at the end of the log.
+      - name: Tests with coverage (fails below 80%)
+        run: |
+          if [ "${{ matrix.database }}" = "postgres" ]; then
+            export DATABASE_URL=postgres://app:app@localhost:5432/module_tests
+          fi
+          uv run pytest --cov -rs
+
+  audit:
+    name: Dependency vulnerabilities (pip-audit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+      # The README's command: a failed or out-of-date export fails the job.
+      - run: >-
+          (f=$(mktemp) && trap 'rm -f "$f"' EXIT
+          && uv export --locked --format requirements-txt --no-emit-project --quiet -o "$f"
+          && uv run pip-audit --disable-pip --require-hashes -r "$f")
+
+  package:
+    name: Package (only the module ships)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv build --wheel --out-dir dist
+      # Fails if the wheel holds anything besides the module's own package and its
+      # metadata: tests (with their settings), hidden files or anything at the top
+      # level would be installed into every project.
+      - name: Check the wheel's contents
+        run: |
+          python3 - <<'EOF'
+          import glob, tomllib, zipfile
+          package = tomllib.load(open("pyproject.toml", "rb"))["tool"]["uv"]["build-backend"]["module-name"]
+          (wheel,) = glob.glob("dist/*.whl")
+          names = [n for n in zipfile.ZipFile(wheel).namelist() if not n.split("/")[0].endswith(".dist-info")]
+          print("The wheel holds:", *names, sep="\n  ")
+          wrong = [
+              n for n in names
+              if n.split("/")[0] != package
+              or "/tests/" in n or "/test_" in n
+              or n.rsplit("/", 1)[-1].startswith(".")
+          ]
+          assert not wrong, f"Only the {package} package may ship, without tests: {wrong}"
+          EOF
+
+  secrets:
+    name: Secrets (gitleaks, whole history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0  # the whole history, not just the latest commit
+          persist-credentials: false
+      - run: docker run --rm -v "$PWD:/repo:ro" "$GITLEAKS_IMAGE" git /repo --redact
