@@ -72,8 +72,8 @@ In a project made from django-starter, with its database running
    ```
 
    The `role="status"` region shows Django's messages ("Saved.") at the top of every
-   page, and screen readers announce messages added there without a page reload
-   (htmx); modules rely on it.
+   page, and screen readers announce messages added there without a page reload (for
+   example by htmx or JavaScript); modules rely on it.
 6. Create its tables, then run the project's tests:
 
    ```bash
@@ -268,7 +268,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
   - never build a `Template(...)` from text a user typed;
   - a URL a user gives is saved and put in a link (`href`) only if it starts with
     `https://` (or `http://`): this stops `javascript:` links. Never redirect to one;
-    redirects go only to the module's own site (see `next` above).
+    redirects go only to pages on the project's own site (see `next` above).
 - **Uploads:** check the size, and the type from the file's content, never from its
   name or the browser's word. For images, during the request, keeping Pillow's
   `MAX_IMAGE_PIXELS` limit and treating its `DecompressionBombWarning` as an error
@@ -385,7 +385,8 @@ Rules for the module's code. The project trusts whatever the module does, so:
        old one from the model (state only);
     3. drop the old column.
 
-    Each of these releases can be rolled back only to the one before it, and the
+    If the new field must be required, make it so in a later release, after step 2's
+    copy. Each of these releases can be rolled back only to the one before it, and the
     column drop can't be undone.
 
     To rename it only in Python, keep the column instead:
@@ -570,7 +571,7 @@ through a pull request. Each tag is `v` plus `version` from `pyproject.toml`.
 **The first release** is `v0.1.0`: `pyproject.toml` and `CHANGELOG.md` already say
 0.1.0. If the CHANGELOG's 0.1.0 entry needs more, follow steps 1 to 4 without changing
 the version. If not, there's nothing for a pull request: check that CI passed on
-`main`, try `main` in a project as step 2 says, then tag `v0.1.0` (step 4).
+`main`, try `main` in a project as step 2 says (with `--branch main`), then tag `v0.1.0` (step 4).
 
 1. Open an issue for the release and a branch for it. Change `version` in
    `pyproject.toml`, run `uv lock` (CI refuses a lock file that doesn't match), and add
