@@ -1,6 +1,6 @@
 # Copier template for a reusable Django module: one app, installable into any
 # project made from django-starter (or any Django project).
-#   copier copy gh:OWNER/django-module-starter ./dj-my-module
+#   copier copy gh:OWNER/django-module-starter site-branding   (the distribution_name)
 # Later, inside the module:  copier update
 
 _min_copier_version: "9.4"

@@ -2,40 +2,79 @@
 
 {{ description }}
 
-A self-contained Django app (`{{ package_name }}`) that any project can install, made
-for projects made from the django-starter template (v1) and working in any Django
-project. It has no project of its own: its tests run against a tiny stand-in project
-in `tests/`.
+A self-contained Django app (`{{ package_name }}`) that any project can install, built
+for projects from the django-starter template (v1) and working in any Django project.
+It has no project of its own: its tests run against a tiny stand-in project in
+`tests/`.
 
-**Works with:** Python 3.14+, Django 6.1 or a later 6.x (tested on 6.1),
-and PostgreSQL 18 (what django-starter projects run) or SQLite. CI tests both
-databases on every pull request.
+**Works with:** Python 3.14+, Django 6.1 or a later 6.x, and PostgreSQL 18 (what
+django-starter projects run) or SQLite. CI tests both databases with the versions in
+`uv.lock` (the newest 6.x), and SQLite once more with the lowest versions allowed
+(Django 6.1).
+
+## Architecture
+
+- **The app** (`src/{{ package_name }}/`) is what projects install. Describe its main
+  parts here as they grow (models, views, templates, background jobs): what each one
+  does, how they connect, and why each major choice was made.
+- **The stand-in project** (`tests/settings.py`, `tests/urls.py`) is the smallest
+  Django project that runs the app, so the tests prove it works outside any one
+  project. `tests/` also checks the rules below.
+- **Released as git tags** (`vX.Y.Z`) that projects install from GitHub, never on the
+  public PyPI (`pyproject.toml` refuses an upload). Built with uv's own build backend,
+  kept up to date with django-module-starter by Copier (see
+  [Updating from the starter](#updating-from-the-starter)).
 
 ## Add it to a project
 
-In a project made from django-starter:
+In a project made from django-starter, with its database running
+(`docker compose up -d`):
 
-1. Install a released version (a tag) from GitHub:
+1. Install a released version (a tag) from GitHub; the module's first one is `v0.1.0`:
 
    ```bash
    uv add git+https://github.com/{{ github_owner }}/{{ distribution_name }} --tag vX.Y.Z
    ```
 
-   If the repository is private, the project's production image needs a login while
-   it builds: see "Adding a reusable app" in the project's README (a Docker build
+   If the repository is private, your machine needs a GitHub login for git (for
+   example `gh auth setup-git`), and the project's production image needs one while it
+   builds: see "Adding a reusable app" in the project's README (a Docker build
    secret; never a token in the URL). While developing the module next to a project,
-   `uv add --editable ../{{ distribution_name }}` uses your working copy instead;
-   switch back to the tagged line before deploying (a folder outside the project
-   can't be built into its image).
+   `uv add --editable ../{{ distribution_name }}` uses your working copy instead. Before
+   deploying, run the `uv add … --tag vX.Y.Z` line again: a folder outside the project
+   can't be built into its image.
 
 2. Add `"{{ package_name }}"` to `INSTALLED_APPS` in `config/settings/core.py`, in the
    "your apps" part at the top.
-3. If the module has URLs, include them in `config/urls.py`, e.g.
+3. If the module has URLs, include them in `config/urls.py` (and change its import to
+   `from django.urls import include, path`):
    `path("{{ package_name | replace('_', '-') }}/", include("{{ package_name }}.urls"))`.
 4. If the module has settings (see [Settings](#settings)), put them in the project's
    settings topic file they belong to, read from the environment, and list each new
-   variable in `.env.example`.
-5. Create its tables, then run the project's tests:
+   variable in `.env.example`. A new topic file goes in two places in
+   `config/settings/__init__.py` (the `from . import …` line and the `for _topic in …`
+   list) and in `TOPICS` in `tests/test_settings_package.py`.
+5. The module's pages extend the project's `templates/layout.html` (see
+   [Pages](#pages)). A project made from django-starter v1.0.x doesn't have one yet: add
+   this `templates/layout.html` (your nav bar and footer go where the comments are):
+
+   ```html
+   {% raw %}{% extends "base.html" %}
+   {% block header %}
+   <header>
+     {# Your nav bar. #}
+     <div role="status">
+       {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+     </div>
+   </header>
+   {% endblock %}
+   {% block footer %}<footer>{# Your footer. #}</footer>{% endblock %}{% endraw %}
+   ```
+
+   The `role="status"` region shows Django's messages ("Saved.") at the top of every
+   page, and screen readers announce messages added there without a page reload (for
+   example by htmx or JavaScript); modules rely on it.
+6. Create its tables, then run the project's tests:
 
    ```bash
    uv run python manage.py migrate      # production's migrate step does this by itself
@@ -54,7 +93,10 @@ default and what it does, e.g.
 Install the new tag (the same `uv add … --tag vX.Y.Z` line), then run
 `uv run python manage.py migrate`, and in production deploy as usual (the image runs
 `collectstatic`; the migrate step migrates). Read `CHANGELOG.md` first: each version
-says what a project must do, if anything.
+says what a project must do, if anything. When it says "deploy vX.Y.Z first", install
+and deploy that version before going further, even when jumping several versions:
+skipping it can remove a column the running code still uses (see
+[Database](#database)).
 
 ## Logging
 
@@ -75,22 +117,86 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 - Link to users with `settings.AUTH_USER_MODEL`, never a project's `User` class.
 - Keep templates in `src/{{ package_name }}/templates/{{ package_name }}/` and static
   files in `src/{{ package_name }}/static/{{ package_name }}/`, so names never clash.
-- Read settings with the `{{ package_name | upper }}_` prefix and a default (see Settings).
+- Read settings with the `{{ package_name | upper }}_` prefix and a default (see
+  Settings), when they're used (in forms, views, validation), never in a model field's
+  definition (`choices`, `max_length`, `default`, `upload_to`): a project that changed
+  the setting would get migrations of its own for the module.
 - **Never add a `check --deploy` warning** to a project (`tests/test_host_rules.py`
   checks this).
-- **Pages** extend the project's `base.html` (django-starter's has `title`, `head`,
-  `header`, `content` and `footer` blocks); add stylesheets and scripts in
-  `{% raw %}{% block head %}{{ block.super }}…{% endblock %}{% endraw %}`. Template tags
-  that read the database go in a page that extends `base.html` (the project's layout),
-  never in `base.html` itself, so the project's error pages keep working when the
-  database is down.
+- **URLs:** name them inside `app_name = "{{ package_name }}"` in `urls.py`
+  (`{% raw %}{% url "{% endraw %}{{ package_name }}{% raw %}:detail" … %}{% endraw %}`), so
+  they never clash with a project's. Models expose a `public_id` (a UUID) in URLs and
+  APIs, never the database `id`, as django-starter projects do.
+- **Business logic** lives in plain functions (`services.py` for changes, `selectors.py`
+  for reads) that views, the admin and background jobs share.
+- **Slow work** (emails, file processing, calls to other services) goes to a
+  background job with Django's Tasks API, in the module's `tasks.py`: enqueue it with
+  `transaction.on_commit(lambda: my_job.enqueue(obj.id))` when saving something, keep
+  each job well under 60 seconds (a deploy waits that long for running jobs), and when
+  a job's arguments change, keep accepting the old ones until queued jobs have run. A
+  project needs its `worker` running for them. **Email** goes through
+  `django.core.mail`.
+- **The cache** is Redis in django-starter projects, and Django raises an error when
+  Redis is down: code that must keep working then catches cache errors and falls back
+  to the database. Clear a cached value when its data is saved; don't rely on a
+  timeout alone.
+
+### Pages
+
+- **Every page extends `layout.html`**, the project's own layout (its nav bar, footer
+  and theme), and fills only:
+  - `{% raw %}{% block title %}{% endraw %}`: always, with what the page is ("Edit
+    invoice"), translated like other text. Without it the tab says "Untitled page",
+    which screen readers announce.
+  - `{% raw %}{% block head %}{{ block.super }}…{% endblock %}{% endraw %}`: the page's
+    stylesheets and scripts, starting with `{% raw %}{{ block.super }}{% endraw %}`.
+  - `{% raw %}{% block content %}{% endraw %}`: the page itself.
+
+  Leave `header` and `footer` to the project, and never ship a `layout.html` of your
+  own. A module whose job is the layout itself (a nav menu, a theme) provides template
+  tags instead, and its README says which line a project adds to its `layout.html`.
+  Modules rely only on the name `layout.html`, these three blocks, and the layout
+  showing Django's messages in a `role="status"` region. Template tags that
+  read the database belong in `layout.html`, never in `base.html`, so the project's
+  error pages keep working when the database is down; a tag shown on every page runs a
+  fixed, small number of queries.
+- **Accessible** (WCAG 2.2 AA):
+  - the content starts with one `<h1>`, headings in order;
+  - no page-level `<main>`, `<header>` or `<footer>` of the module's own (the layout
+    has them; a `<header>` inside an `<article>` is fine);
+  - forms rendered by Django (labels, help text and errors linked to their fields) or,
+    when written by hand, a visible `<label for>` and `aria-describedby` for help and
+    errors on every field; after a failed submit, the errors are near the top of the
+    page or the first wrong field gets the focus;
+  - real `<button>` and `<a>` elements, never clickable `<div>`s; buttons and
+    standalone links (not links inside a sentence) at least 24 by 24 CSS
+    pixels, with a visible focus outline (never `outline: none` without a replacement);
+  - every `<img>` has `alt` (empty, `alt=""`, for decoration) and its `width` and
+    `height`, so the page doesn't jump while it loads;
+  - the module's CSS uses the page's colors (`currentColor`, inherited colors or the
+    theme's CSS variables) rather than fixed ones, and any color it does set has enough
+    contrast (4.5:1 for text, 3:1 for icons and borders) in both light and dark mode;
+  - sizes in `rem`, and the page works at 320 px wide and zoomed to 200% without
+    scrolling sideways;
+  - animations and transitions stop under `@media (prefers-reduced-motion: reduce)`.
+- **Static files** always through `{% raw %}{% load static %}{% static "{% endraw %}{{ package_name }}{% raw %}/…" %}{% endraw %}`,
+  never `/static/…` (projects give files cache-busting names). `url()` paths in CSS
+  are relative and must exist (the project's `collectstatic` fails otherwise). Scripts
+  get `defer`; no web fonts of the module's own.
+- **Text people see** is marked for translation: `gettext_lazy as _` in Python
+  (models' `verbose_name`, form labels, messages) and
+  `{% raw %}{% load i18n %}{% translate "…" %}{% endraw %}` in templates
+  (`{% raw %}{% blocktranslate %}…{{ name }}…{% endblocktranslate %}{% endraw %}` for text
+  with values in it).
+- **Confirm actions** with Django's messages framework
+  (`messages.success(request, _("Saved."))`); the project's `layout.html` shows them.
 - **No inline code**: projects enforce a strict Content Security Policy (a
   django-starter project only reports problems while you develop, and blocks them in
   production). Put CSS and JavaScript in static files; if inline code is unavoidable,
   give the tag `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"` or
   `{% raw %}{% csp_nonce_attr %}{% endraw %}`. Never `style="…"`, `onclick=` or
-  `javascript:` links, and no code that needs `eval` (htmx's `hx-on`, Alpine's
-  `x-on`). Load nothing from other sites (CDNs, web fonts, images too) and don't post
+  `javascript:` links, and no code that needs `eval` (htmx's `hx-on`, or Alpine's
+  standard build: use its CSP build). Load nothing from other sites (CDNs, web fonts, images too) and don't post
   forms to them; `data:` URLs only for images and icons. No frames, video, audio,
   embedded objects or manifests: a django-starter project's policy blocks them all.
 - **`tests/test_csp.py` checks** the module's HTML, SVG, XML and Jinja templates under
@@ -110,9 +216,29 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
   `jinja2/{{ package_name }}/emails/`): they need inline styles and full image URLs,
   and the site's policy doesn't apply to them, so the check skips that folder. Nothing
   else goes there.
-- **Uploads:** see [Security](#security).
-- **Slow work** (emails, file processing, calls to other services) goes to a
-  background job with Django's Tasks API; **email** goes through `django.core.mail`.
+- **Testing pages:** the stand-in project has no `layout.html`. When the module gets
+  pages, add `"DIRS": [Path(__file__).parent / "templates"]` (with
+  `from pathlib import Path`) to `TEMPLATES` in `tests/settings.py`, and a
+  `tests/templates/layout.html` shaped like a project's:
+
+  ```html
+  {% raw %}<!doctype html>
+  <html lang="en">
+  <head>
+    <meta charset="utf-8">
+    {% block head %}{% endblock %}
+    <title>{% block title %}Untitled page{% endblock %}</title>
+  </head>
+  <body>
+    <header>
+      <div role="status">
+        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+      </div>
+    </header>
+    <main id="main">{% block content %}{% endblock %}</main>
+  </body>
+  </html>{% endraw %}
+  ```
 
 ## Security
 
@@ -124,8 +250,6 @@ Rules for the module's code. The project trusts whatever the module does, so:
 - **Forms and input:** validate all input with Django forms;
   `{% raw %}{% csrf_token %}{% endraw %}` in every POST form; never `csrf_exempt`.
 - **Database:** the ORM or parameterized queries only, never SQL built from strings.
-- **Templates:** keep auto-escaping; never `|safe` or `mark_safe` on anything a user
-  typed.
 - **Changes only on POST:** a view that changes anything refuses GET
   (`@require_POST`), so a link or an image on another site can't trigger it. Check
   redirect targets such as `next` with `url_has_allowed_host_and_scheme` (no open
@@ -133,16 +257,67 @@ Rules for the module's code. The project trusts whatever the module does, so:
 - **Logins:** never check passwords or tokens yourself; use
   `django.contrib.auth.authenticate(request, ...)`, so the project's login rate
   limiting (django-axes) counts every attempt.
-- **Uploads:** check type and size, never trust the file's name, store under a
-  `{{ package_name }}/` folder with a random part per file, and refuse names with `..`
-  (path traversal). In django-starter projects the default storage is **private**:
-  its files are served only through the project's own view, to whoever the project's
-  `can_download()` allows (by default, active staff). So a module that keeps private
-  files either says in this README what projects should allow in `can_download()`,
-  or serves them through its own view that checks permission. Files anyone may see
-  (pictures on public pages) go in the project's "public" storage, chosen without
-  importing project code (a function keeps the module's migrations the same in every
-  project):
+- **Output:** keep auto-escaping; never `|safe` or `mark_safe` on anything a user
+  typed. Auto-escaping only makes text safe inside HTML, not inside CSS, JavaScript or
+  a URL, so:
+  - a value that ends up in CSS, JavaScript or a URL (a color, a name, a link) is
+    checked against a strict pattern or a list of choices when it's saved, not only
+    when it's shown;
+  - data for JavaScript goes through `{% raw %}{{ data|json_script:"id" }}{% endraw %}`,
+    never `{% raw %}{{ }}{% endraw %}` inside a script;
+  - never build a `Template(...)` from text a user typed;
+  - a URL a user gives is saved and put in a link (`href`) only if it starts with
+    `https://` (or `http://`): this stops `javascript:` links. Never redirect to one;
+    redirects go only to pages on the project's own site (see `next` above).
+- **Uploads:** check the size, and the type from the file's content, never from its
+  name or the browser's word. For images, during the request, keeping Pillow's
+  `MAX_IMAGE_PIXELS` limit and treating its `DecompressionBombWarning` as an error
+  (only around this check, not for the whole server):
+
+  ```python
+  import warnings
+
+  from PIL import Image
+
+  with warnings.catch_warnings():
+      warnings.simplefilter("error", Image.DecompressionBombWarning)
+      with Image.open(upload) as img:
+          img.verify()      # raises for a broken or oversized image: refuse the upload
+          kind = img.format  # e.g. "PNG": check it's one the module allows
+  ```
+
+  Fully decoding, resizing or converting an image happens later, in a background job
+  (see below).
+  Name the stored file's extension after the format Pillow found (`img.format`), not
+  the uploaded name. `ImageField` needs Pillow (`uv add pillow`). Store each file
+  under a `{{ package_name }}/` folder with a random part, from a function of the
+  module's own (projects' helpers can't be imported):
+
+  ```python
+  from uuid import uuid4
+
+  from django.utils.text import get_valid_filename
+
+
+  def random_folder(instance, filename):
+      # Each file in its own unguessable folder; a top-level function keeps migrations stable.
+      return f"{{ package_name }}/{uuid4().hex}/{get_valid_filename(filename)}"
+  ```
+
+  In django-starter projects the default storage is **private**: its files are served
+  only through the project's own view, to whoever the project's `can_download()`
+  allows (by default, active staff). So a module that keeps private files either says
+  in this README what projects should allow in `can_download()`, or serves them
+  through its own view that checks permission. Such a view sends each file with
+  `FileResponse(…, as_attachment=True)` and the headers
+  `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`
+  and `Cache-Control: private, no-store`, always as a download, as the project's own
+  view does (an `<img>` tag still shows an image sent this way). With S3 storage
+  (`DJANGO_MEDIA_STORAGE=s3`), a file's `.url` is a signed link that works for an hour
+  for whoever has it: show it only to people allowed to see the file, and never save
+  or email it. Files anyone may see (pictures on public pages) go in the project's
+  "public" storage, chosen without importing project code (a function keeps the
+  module's migrations the same in every project):
 
   ```python
   from django.conf import settings
@@ -154,7 +329,22 @@ Rules for the module's code. The project trusts whatever the module does, so:
       return storages["public"] if "public" in settings.STORAGES else default_storage
   ```
 
-  and `models.ImageField(storage=public_storage, ...)`.
+  and `models.ImageField(storage=public_storage, upload_to=random_folder, ...)`.
+  Unpacking archives, decoding images or reading fonts is capped in size and runs in a
+  background job, never in the request.
+- **URLs a user gives** (webhooks, "import from a link", remote images): otherwise a
+  user can make the server reach its own database, Redis, cloud metadata or other
+  internal services. Fetch them in a background job, and:
+  - only `https://` on port 443;
+  - resolve the host, and go on only if **every** address it gives is public
+    (`ipaddress.ip_address(a).is_global`; for an IPv6 address, check its
+    `ipv4_mapped` address too);
+  - connect to the address you checked, not the name again: a second lookup can give
+    a different, internal address (DNS rebinding). Keep certificate checks on, checked
+    against the original host name (the client library's way of pinning the address
+    while keeping the name, never `verify=False`);
+  - don't follow redirects, or check each one the same way;
+  - cap the response size and the time.
 - **Background jobs:** pass IDs, never secrets, tokens or personal data, as arguments:
   they're stored in the database and shown in the admin.
 - **Secrets:** never in code. A secret the module needs comes from a project setting
@@ -164,16 +354,110 @@ Rules for the module's code. The project trusts whatever the module does, so:
 
 ## Database
 
-- **Supported:** PostgreSQL 18 and SQLite (both tested on every pull request).
+- **Supported:** PostgreSQL 18 and SQLite (both tested on every pull request). CI's
+  Postgres tests log in as a role like a django-starter project's app login (not a
+  superuser), as projects migrate with.
 - **Every migration keeps working with the previous release's code.** Projects
-  migrate while the old code still runs, and a rollback doesn't undo migrations: add
-  things in one release, remove them in a later one, and never rename in one step.
+  migrate while the old code still runs, and a rollback keeps the new database with
+  the old code, so:
+  - a new field is `null=True` or has `db_default=…`, never only `default=` (which
+    exists only in Python: the old code's inserts would fail);
+  - a new constraint accepts every row the previous release can write;
+  - a model gets its `public_id` in the migration that creates it: adding a unique
+    field to a table that already has rows rewrites and locks the whole table (it then
+    takes a nullable field, filled in batches, and a unique index made as below);
+  - **removing a field takes three releases:**
+    1. stop using it, and make it nullable or give it a `db_default`;
+    2. remove it from the model with a migration that changes only Django's state
+       (`migrations.SeparateDatabaseAndState(state_operations=[migrations.RemoveField(…)])`,
+       no database operations);
+    3. drop the column. Django's `RemoveField` can't (the field is no longer in the
+       model), so use
+       `migrations.RunSQL('ALTER TABLE "{{ package_name }}_thing" DROP COLUMN "old_name"', migrations.RunSQL.noop)`
+       (on SQLite, the column's index or constraint must go first), or `DROP TABLE`
+       for a whole model.
+  - **renaming a field** the same way, or its data is lost (the old code keeps writing
+    only the old column, during the deploy and after a rollback):
+    1. add the new field (nullable or with a `db_default`), write to both fields, and
+       copy the old values across in a data migration;
+    2. copy again the rows the old code wrote meanwhile, make the old field nullable
+       (or give it a `db_default`), read and write only the new field, and remove the
+       old one from the model (state only);
+    3. drop the old column.
+
+    If the new field must be required, make it so in a later release, after step 2's
+    copy. Each of these releases can be rolled back only to the one before it, and the
+    column drop can't be undone.
+
+    To rename it only in Python, keep the column instead:
+    `new_name = models.CharField(…, db_column="old_name")` changes nothing in the
+    database.
+- **A release that finishes such a change** says "deploy vX.Y.Z first" in
+  `CHANGELOG.md`, naming the release before it, so a project that skips versions
+  doesn't drop a column its running code still uses (see [Upgrading](#upgrading)).
+- **Big tables:** on Postgres, a plain `AddIndex`, a field type change and a new
+  unique, check or foreign-key constraint lock the table for as long as they take,
+  while the old code is serving; a new foreign key locks the table it points to (often
+  the users table) too, and every query that comes after a waiting migration waits
+  as well. Build indexes with `CONCURRENTLY`, which doesn't lock. Django's
+  `AddIndexConcurrently` crashes on SQLite, so a module that supports both uses a
+  migration like this one:
+
+  ```python
+  from django.db import migrations, models
+
+  # The name is unique in the whole database, 30 characters at most.
+  INDEX = models.Index(fields=["created"], name="{{ package_name[:16] }}_created_idx")
+
+
+  def add_index(apps, schema_editor):
+      model = apps.get_model("{{ package_name }}", "Thing")
+      if schema_editor.connection.vendor == "postgresql":
+          schema_editor.add_index(model, INDEX, concurrently=True)
+      else:
+          schema_editor.add_index(model, INDEX)
+
+
+  def remove_index(apps, schema_editor):
+      model = apps.get_model("{{ package_name }}", "Thing")
+      if schema_editor.connection.vendor == "postgresql":
+          schema_editor.remove_index(model, INDEX, concurrently=True)
+      else:
+          schema_editor.remove_index(model, INDEX)
+
+
+  class Migration(migrations.Migration):
+      atomic = False  # CONCURRENTLY can't run inside a transaction
+
+      dependencies = [("{{ package_name }}", "0002_previous")]
+
+      operations = [
+          migrations.SeparateDatabaseAndState(
+              database_operations=[migrations.RunPython(add_index, remove_index)],
+              state_operations=[migrations.AddIndex("thing", INDEX)],
+          ),
+      ]
+  ```
+
+  Add the same index to the model's `Meta.indexes`. If the migration fails on
+  Postgres, it leaves an INVALID index behind: drop it (`DROP INDEX CONCURRENTLY …`)
+  before running `migrate` again.
+- **Data migrations** that change many rows go in a migration of their own (never with
+  schema changes), with `atomic = False`, saving each batch (say 1,000 rows) in its own
+  `transaction.atomic()`, so no single transaction holds the table for long.
 - **Nothing that needs a superuser** (e.g. `CREATE EXTENSION` of an untrusted
-  extension): django-starter projects migrate with a login that isn't one. If the
-  module needs such an extension, say so here and in the CHANGELOG, so the project
-  adds it first.
+  extension; trusted ones such as `pg_trgm` work): django-starter projects migrate
+  with a login that isn't one, and so does CI. If the module needs such an extension,
+  say so here and in the CHANGELOG, so the project adds it first.
 - **Never edit or delete a released migration**; add a new one. Data migrations use
   `apps.get_model` and have a reverse (or `migrations.RunPython.noop`).
+- **Queries:** no query per row (`select_related` and `prefetch_related`); an index for
+  the filters and orderings the module runs often on tables that grow (each index slows
+  every write, so not on every field); pagination on any list that grows; and in the
+  admin, `raw_id_fields` for links to users (`autocomplete_fields` only works if the
+  project's user admin has `search_fields`) or other big tables, since a plain one
+  puts every user in the page. pytest-django's `django_assert_max_num_queries` keeps a
+  page's query count in check in its tests.
 - **Say in the CHANGELOG** when a migration deletes data or is slow on big tables.
 
 Create migrations after changing models (`tests/test_app.py` fails until you do):
@@ -184,11 +468,11 @@ uv run django-admin makemigrations {{ package_name }} --settings=tests.settings 
 
 ## Develop it
 
-You need uv 0.12: the module requires that version line, the same one CI uses, so
-`uv.lock` is always written the way CI reads it. If uv came from its standalone
-installer, `uv self update 0.12.24` switches to it (down from a newer uv too);
-otherwise install 0.12.24 the way you installed uv. Once, right after making the
-module:
+You need git, Docker (for Postgres tests and full secret scans) and uv 0.12: the
+module requires that version line, the same one CI uses, so `uv.lock` is always
+written the way CI reads it. If uv came from its standalone installer,
+`uv self update 0.12.24` switches to it (down from a newer uv too); otherwise install
+0.12.24 the way you installed uv. Once, right after making the module:
 
 ```bash
 git init -b main           # a new module isn't a git repo yet (CI and releases use main)
@@ -198,18 +482,38 @@ uv run pre-commit install  # turns on the checks that run on every commit
 git add -A && git commit -m "Start from django-module-starter"
 ```
 
-Then create the repository on GitHub under `{{ github_owner }}`, push, and turn on
-"Dependabot alerts" and "Dependabot security updates" in its Settings > Code security
-(for a public repository, also secret scanning with push protection, and code
-scanning).
+Then create the repository on GitHub under `{{ github_owner }}`, named
+`{{ distribution_name }}`, {% if license == "MIT" %}public (MIT){% else %}**private** (proprietary){% endif %}, and push. With
+GitHub's `gh` tool:
+
+```bash
+gh repo create {{ github_owner }}/{{ distribution_name }} --{% if license == "MIT" %}public{% else %}private{% endif %} --source . --push
+```
+
+(or create it on github.com, then `git remote add origin
+https://github.com/{{ github_owner }}/{{ distribution_name }}.git` and
+`git push -u origin main`). In the repository's Settings:
+
+- **Code security** (called "Advanced Security" on some accounts): turn on
+  "Dependabot alerts" and "Dependabot security updates"; for a public repository, also
+  secret scanning with push protection, and code scanning.
+- **Branches:** protect `main` so a pull request needs CI to pass before it's merged:
+  require the checks "Lint (ruff)", "Tests (sqlite, locked versions)", "Tests
+  (postgres, locked versions)", "Tests (sqlite, lowest versions)", "Dependency
+  vulnerabilities (pip-audit)", "Package (only the module ships)" and "Secrets
+  (gitleaks, whole history)". GitHub lists them to pick from only after CI has run
+  once, so open your first pull request, then come back. On a free GitHub account,
+  a private repository can't protect branches: there, check that CI passed before you
+  merge.
 
 Every day:
 
 ```bash
-uv run pytest              # runs the tests on SQLite, no setup needed
-uv run pytest --cov        # the same, with coverage (fails below 80%)
-uv run ruff check .        # finds problems
-uv run ruff format .       # formats the code
+uv run pytest                      # runs the tests on SQLite, no setup needed
+uv run pytest --cov                # the same, with coverage (fails below 80%)
+uv run ruff check .                # finds problems
+uv run ruff format .               # formats the code
+uv run pre-commit run --all-files  # the commit checks, on every file
 ```
 
 Before every pull request, check the dependencies for known vulnerabilities:
@@ -218,14 +522,18 @@ Before every pull request, check the dependencies for known vulnerabilities:
 (f=$(mktemp) && trap 'rm -f "$f"' EXIT && uv export --locked --format requirements-txt --no-emit-project --quiet -o "$f" && uv run pip-audit --disable-pip --require-hashes -r "$f")
 ```
 
-**On GitHub,** every pull request runs `.github/workflows/ci.yml`: ruff, the tests on
-SQLite and on PostgreSQL 18 with coverage, pip-audit, a scan of the whole history for
-secrets (gitleaks), and a check that the built package holds only the module.
-Dependabot (`.github/dependabot.yml`) opens pull requests for updates.
+**On GitHub,** every pull request runs `.github/workflows/ci.yml`: ruff; the tests
+with coverage on SQLite and on PostgreSQL 18 (logged in as a role that isn't a
+superuser, like a project's) with the versions in `uv.lock`, and once more on SQLite
+with the lowest versions `pyproject.toml` allows; pip-audit; a scan of the whole
+history for secrets (gitleaks); and a check that the built package holds only the
+module. A newer push to a pull request cancels the older run. Dependabot
+(`.github/dependabot.yml`) opens pull requests for updates every week, once a release
+is a week old.
 
 The commit check only scans what's being committed. To scan every file and the whole
-history for secrets (needs Docker; the every-file scan also reads files git ignores,
-like a local `.env`, so a finding there may never have been committed):
+history for secrets (the every-file scan also reads files git ignores, like a local
+`.env`, so a finding there may never have been committed):
 
 ```bash
 docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f dir /repo --redact   # every file
@@ -240,32 +548,49 @@ docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b
 - **gitleaks:** `rev` in `.pre-commit-config.yaml` (`uv run pre-commit autoupdate --freeze`)
   and `GITLEAKS_IMAGE` in `.github/workflows/ci.yml`, plus the two commands above.
 
-To run the tests on Postgres here too (CI always does), with a Postgres that has that
-login and database running:
+To run the tests on Postgres here too, with a login like CI's (port 5433, so it never
+clashes with a project's database on 5432):
 
 ```bash
-DATABASE_URL=postgres://app:app@localhost:5432/module_tests uv run pytest
+docker run -d --rm --name {{ distribution_name }}-postgres -p 127.0.0.1:5433:5432 -e POSTGRES_USER=app -e POSTGRES_PASSWORD=app -e POSTGRES_DB=module_tests postgres:18-trixie
+docker exec {{ distribution_name }}-postgres pg_isready -U app -h 127.0.0.1   # repeat until "accepting connections"
+docker exec {{ distribution_name }}-postgres psql -U app -d module_tests -c "CREATE ROLE module LOGIN PASSWORD 'module' NOSUPERUSER CREATEDB"
+DATABASE_URL=postgres://module:module@localhost:5433/module_tests uv run pytest
+docker stop {{ distribution_name }}-postgres   # stops it and deletes it, data included
 ```
 
-To check what the package will ship (CI does this too): `uv build`, then
-`unzip -l dist/*.whl` should list only `{{ package_name }}/` and its metadata.
+To check what the package will ship (CI does this too): `rm -rf dist && uv build
+--wheel`, then `uv run python -m zipfile -l dist/*.whl` should list only
+`{{ package_name }}/` and its metadata.
 
 ## Release a version
 
-Nothing is pushed straight to `main`:
+After the first push, nothing is pushed straight to `main`: every change goes
+through a pull request. Each tag is `v` plus `version` from `pyproject.toml`.
+
+**The first release** is `v0.1.0`: `pyproject.toml` and `CHANGELOG.md` already say
+0.1.0. If the CHANGELOG's 0.1.0 entry needs more, follow steps 1 to 4 without changing
+the version. If not, there's nothing for a pull request: check that CI passed on
+`main`, try `main` in a project as step 2 says (with `--branch main`), then tag `v0.1.0` (step 4).
 
 1. Open an issue for the release and a branch for it. Change `version` in
    `pyproject.toml`, run `uv lock` (CI refuses a lock file that doesn't match), and add
    the version at the top of `CHANGELOG.md`: what changed, and what a project must do
    when it upgrades (newest version first). Commit `pyproject.toml`, `uv.lock` and
    `CHANGELOG.md`.
-2. Try the branch in a project made from django-starter: install your working copy
-   (`uv add --editable ../{{ distribution_name }}`, as in
-   [Add it to a project](#add-it-to-a-project)), run the project's tests (they include
-   `check --deploy` with production settings), and try it in the project's local
-   production run (its README, "Production"). Switch the project back to the tag
-   afterwards.
-3. Open a pull request; CI must pass (both databases, the package check). Merge it.
+2. Try the branch in a project made from django-starter:
+   - **While developing:** install your working copy
+     (`uv add --editable ../{{ distribution_name }}`) and run the project's tests (they
+     include `check --deploy` with production settings).
+   - **In production form:** push the branch, install it with
+     `uv add git+https://github.com/{{ github_owner }}/{{ distribution_name }} --branch BRANCH`,
+     and try it in the project's local production run (its README, "Production (the
+     real image, run locally)").
+
+   Afterwards, put the project back on its previous tag (the `uv add … --tag` line),
+   or `uv remove {{ distribution_name }}` before the module's first release.
+3. Open a pull request; CI must pass (both databases, the lowest versions, the package
+   check). Merge it.
 4. Tag the merged `main` and push only the tag:
 
    ```bash
@@ -278,16 +603,23 @@ Nothing is pushed straight to `main`:
 
 ## Updating from the starter
 
-When django-module-starter improves, commit everything first, then:
+When django-module-starter improves (its release notes on GitHub say what changed and
+what to do):
 
-```bash
-copier update
-```
+1. Commit everything, and make a branch.
+2. Run `copier update`. Copier asks its questions again: press Enter to keep each
+   answer.
+3. Where the starter and your module both changed a file, Copier writes both versions
+   into it between `<<<<<<<` and `>>>>>>>` lines: search for `<<<<<<<` (`git status`
+   lists the changed files) and keep the right lines, your own changes and the newer
+   of two pinned versions.
+4. Run `uv lock`, `uv run pytest --cov` and `uv run ruff check .`.
+5. Commit, open a pull request, and merge it once CI passes. If CI's check names
+   changed, update the required checks under Settings > Branches.
 
-Copier re-applies the starter's changes and asks about any conflicts (keep your own
-changes, and the newer of two pinned versions). To change the GitHub owner (or the
-license or copyright year) the module was made with (this also brings in the
-starter's newest release, as `copier update` always does):
+To change the GitHub owner (or the license or copyright year) the module was made
+with, which also brings in the starter's newest release as `copier update` always
+does:
 
 ```bash
 copier update --defaults --data github_owner=NEW-OWNER

@@ -4,8 +4,9 @@ It stands in for "any project that installs the module". If the module only
 works inside one particular project, these tests fail.
 
 Database: SQLite in memory by default, no setup needed. To test against
-Postgres (for Postgres-only features), set DATABASE_URL:
-    DATABASE_URL=postgres://app:app@localhost:5432/module_tests uv run pytest
+Postgres (for Postgres-only features), set DATABASE_URL (the README's "Develop it"
+starts this database, with a login like CI's):
+    DATABASE_URL=postgres://module:module@localhost:5433/module_tests uv run pytest
 """
 
 import os
