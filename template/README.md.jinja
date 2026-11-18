@@ -3,12 +3,12 @@
 {{ description }}
 
 A self-contained Django app (`{{ package_name }}`) that any project can install, built
-for projects from the django-starter template (v1) and working in any Django project.
-It has no project of its own: its tests run against a tiny stand-in project in
-`tests/`.
+for projects from the capy-project template (v1; called django-starter up to v1.0.1)
+and working in any Django project. It has no project of its own: its tests run against
+a tiny stand-in project in `tests/`.
 
 **Works with:** Python 3.14+, Django 6.1 or a later 6.x, and PostgreSQL 18 (what
-django-starter projects run) or SQLite. CI tests both databases with the versions in
+capy-project projects run) or SQLite. CI tests both databases with the versions in
 `uv.lock` (the newest 6.x), and SQLite once more with the lowest versions allowed
 (Django 6.1).
 
@@ -22,12 +22,12 @@ django-starter projects run) or SQLite. CI tests both databases with the version
   project. `tests/` also checks the rules below.
 - **Released as git tags** (`vX.Y.Z`) that projects install from GitHub, never on the
   public PyPI (`pyproject.toml` refuses an upload). Built with uv's own build backend,
-  kept up to date with django-module-starter by Copier (see
+  kept up to date with capy-module by Copier (see
   [Updating from the starter](#updating-from-the-starter)).
 
 ## Add it to a project
 
-In a project made from django-starter, with its database running
+In a project made from capy-project, with its database running
 (`docker compose up -d`):
 
 1. Install a released version (a tag) from GitHub; the module's first one is `v0.1.0`:
@@ -55,7 +55,7 @@ In a project made from django-starter, with its database running
    `config/settings/__init__.py` (the `from . import …` line and the `for _topic in …`
    list) and in `TOPICS` in `tests/test_settings_package.py`.
 5. The module's pages extend the project's `templates/layout.html` (see
-   [Pages](#pages)). A project made from django-starter v1.0.x doesn't have one yet: add
+   [Pages](#pages)). A project made from capy-project v1.0.x doesn't have one yet: add
    this `templates/layout.html` (your nav bar and footer go where the comments are):
 
    ```html
@@ -126,7 +126,7 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 - **URLs:** name them inside `app_name = "{{ package_name }}"` in `urls.py`
   (`{% raw %}{% url "{% endraw %}{{ package_name }}{% raw %}:detail" … %}{% endraw %}`), so
   they never clash with a project's. Models expose a `public_id` (a UUID) in URLs and
-  APIs, never the database `id`, as django-starter projects do.
+  APIs, never the database `id`, as capy-project projects do.
 - **Business logic** lives in plain functions (`services.py` for changes, `selectors.py`
   for reads) that views, the admin and background jobs share.
 - **Slow work** (emails, file processing, calls to other services) goes to a
@@ -136,7 +136,7 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
   a job's arguments change, keep accepting the old ones until queued jobs have run. A
   project needs its `worker` running for them. **Email** goes through
   `django.core.mail`.
-- **The cache** is Redis in django-starter projects, and Django raises an error when
+- **The cache** is Redis in capy-project projects, and Django raises an error when
   Redis is down: code that must keep working then catches cache errors and falls back
   to the database. Clear a cached value when its data is saved; don't rely on a
   timeout alone.
@@ -191,14 +191,14 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 - **Confirm actions** with Django's messages framework
   (`messages.success(request, _("Saved."))`); the project's `layout.html` shows them.
 - **No inline code**: projects enforce a strict Content Security Policy (a
-  django-starter project only reports problems while you develop, and blocks them in
+  capy-project project only reports problems while you develop, and blocks them in
   production). Put CSS and JavaScript in static files; if inline code is unavoidable,
   give the tag `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"` or
   `{% raw %}{% csp_nonce_attr %}{% endraw %}`. Never `style="…"`, `onclick=` or
   `javascript:` links, and no code that needs `eval` (htmx's `hx-on`, or Alpine's
   standard build: use its CSP build). Load nothing from other sites (CDNs, web fonts, images too) and don't post
   forms to them; `data:` URLs only for images and icons. No frames, video, audio,
-  embedded objects or manifests: a django-starter project's policy blocks them all.
+  embedded objects or manifests: a capy-project project's policy blocks them all.
 - **`tests/test_csp.py` checks** the module's HTML, SVG, XML and Jinja templates under
   `templates/` and `jinja2/` against that policy. It's a safety net that reads
   template source, not a browser: it can't see CSS or JavaScript files, what inline
@@ -304,7 +304,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
       return f"{{ package_name }}/{uuid4().hex}/{get_valid_filename(filename)}"
   ```
 
-  In django-starter projects the default storage is **private**: its files are served
+  In capy-project projects the default storage is **private**: its files are served
   only through the project's own view, to whoever the project's `can_download()`
   allows (by default, active staff). So a module that keeps private files either says
   in this README what projects should allow in `can_download()`, or serves them
@@ -325,7 +325,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
 
 
   def public_storage():
-      # The project's public storage (django-starter projects have one), else the default.
+      # The project's public storage (capy-project projects have one), else the default.
       return storages["public"] if "public" in settings.STORAGES else default_storage
   ```
 
@@ -355,7 +355,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
 ## Database
 
 - **Supported:** PostgreSQL 18 and SQLite (both tested on every pull request). CI's
-  Postgres tests log in as a role like a django-starter project's app login (not a
+  Postgres tests log in as a role like a capy-project project's app login (not a
   superuser), as projects migrate with.
 - **Every migration keeps working with the previous release's code.** Projects
   migrate while the old code still runs, and a rollback keeps the new database with
@@ -446,7 +446,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
   schema changes), with `atomic = False`, saving each batch (say 1,000 rows) in its own
   `transaction.atomic()`, so no single transaction holds the table for long.
 - **Nothing that needs a superuser** (e.g. `CREATE EXTENSION` of an untrusted
-  extension; trusted ones such as `pg_trgm` work): django-starter projects migrate
+  extension; trusted ones such as `pg_trgm` work): capy-project projects migrate
   with a login that isn't one, and so does CI. If the module needs such an extension,
   say so here and in the CHANGELOG, so the project adds it first.
 - **Never edit or delete a released migration**; add a new one. Data migrations use
@@ -479,7 +479,7 @@ git init -b main           # a new module isn't a git repo yet (CI and releases 
 uv lock                    # pins every package version in uv.lock: commit it (CI needs it)
 uv sync                    # installs Python, Django and the test tools
 uv run pre-commit install  # turns on the checks that run on every commit
-git add -A && git commit -m "Start from django-module-starter"
+git add -A && git commit -m "Start from capy-module"
 ```
 
 Then create the repository on GitHub under `{{ github_owner }}`, named
@@ -578,7 +578,7 @@ the version. If not, there's nothing for a pull request: check that CI passed on
    the version at the top of `CHANGELOG.md`: what changed, and what a project must do
    when it upgrades (newest version first). Commit `pyproject.toml`, `uv.lock` and
    `CHANGELOG.md`.
-2. Try the branch in a project made from django-starter:
+2. Try the branch in a project made from capy-project:
    - **While developing:** install your working copy
      (`uv add --editable ../{{ distribution_name }}`) and run the project's tests (they
      include `check --deploy` with production settings).
@@ -603,7 +603,7 @@ the version. If not, there's nothing for a pull request: check that CI passed on
 
 ## Updating from the starter
 
-When django-module-starter improves (its release notes on GitHub say what changed and
+When capy-module improves (its release notes on GitHub say what changed and
 what to do):
 
 1. Commit everything, and make a branch.

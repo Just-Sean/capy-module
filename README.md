@@ -1,7 +1,11 @@
-# Django module starter (Copier template)
+# capy-module (Copier template)
+
+Called django-module-starter before its v1.0.0, and its host template, capy-project,
+was called django-starter up to v1.0.1. GitHub sends the old names to the new ones,
+so older links and modules' `copier update` keep working.
 
 Makes a new reusable Django module: one app, packaged so any project can install it
-with `uv add` (made for projects from the django-starter template, and working in any
+with `uv add` (made for projects from the capy-project template, and working in any
 Django project), with its own tests that run without a project.
 
 Every new module comes with its checks from the first commit: gitleaks and ruff before
@@ -22,7 +26,7 @@ releases.
 - **Copier** was chosen so modules can take in the starter's later improvements with
   `copier update`, keeping their own changes.
 - Modules are released as git tags and installed from GitHub (never the public PyPI),
-  and built for projects from the django-starter template: they fit its settings
+  and built for projects from the capy-project template: they fit its settings
   layout, its strict Content Security Policy, its private file storage and its
   database login that isn't a superuser.
 
@@ -32,7 +36,7 @@ You need uv, git and Copier (`uv tool install copier`, once). Then, naming the f
 after the module's `distribution_name`:
 
 ```bash
-copier copy gh:Just-Sean/django-module-starter site-branding   # the newest release
+copier copy gh:Just-Sean/capy-module site-branding   # the newest release
 ```
 
 Copier asks:
@@ -40,8 +44,8 @@ Copier asks:
 | Question | What it's for |
 | --- | --- |
 | `module_name` | The human-readable name (e.g. "Site Branding"), shown in the admin |
-| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the packages django-starter projects and the module itself install) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
-| `distribution_name` | The name `uv add` installs (e.g. `site-branding`). Names of packages django-starter projects or the module install are refused |
+| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the packages capy-project projects and the module itself install) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
+| `distribution_name` | The name `uv add` installs (e.g. `site-branding`). Names of packages capy-project projects or the module install are refused |
 | `description` | One sentence saying what the module does |
 | `github_owner` | The GitHub account or organization the module will live under, also the copyright holder in its `LICENSE`. No default: type your own |
 | `license` | MIT, or proprietary (all rights reserved) |
@@ -84,7 +88,7 @@ pre-commit install              # once per clone
   deliberately not `.jinja`, so GitHub's `${{ }}` expressions stay untouched.
 - **Trying changes before a release:** make a throwaway module from your working copy,
   uncommitted changes included: `copier copy --vcs-ref=HEAD --data github_owner=me
-  --data license=MIT /path/to/django-module-starter /tmp/try-it`, then run its checks
+  --data license=MIT /path/to/capy-module /tmp/try-it`, then run its checks
   with uv 0.12, which modules require (`git init -b main`, `uv lock`, `uv run pytest
   --cov`, `uv run ruff check .`, `uv build`). Never use `--vcs-ref=HEAD` for a real
   module: Copier records an unreleased version and later refuses to update from it. The
@@ -95,11 +99,11 @@ pre-commit install              # once per clone
   `pyproject.toml.jinja`, and the `uv self update` version in `template/README.md.jinja`.
 - **Refused names** (`taken_package_names` and `taken_distribution_names` in
   `copier.yml`): besides Django's apps and a project's own names, every package a
-  django-starter project and a module install, since a module with the same name would
+  capy-project project and a module install, since a module with the same name would
   replace it in projects. Check them whenever either template's dependencies change or
   are upgraded:
-  1. Make a throwaway project from your django-starter working copy
-     (`copier copy --vcs-ref=HEAD /path/to/django-starter /tmp/p`) and a throwaway
+  1. Make a throwaway project from your capy-project working copy
+     (`copier copy --vcs-ref=HEAD /path/to/capy-project /tmp/p`) and a throwaway
      module as in "Trying changes before a release" above; run `uv sync` in each.
   2. Compare the package names in each `uv.lock` with `taken_distribution_names`, the
      top-level names in each `.venv/lib/python3.*/site-packages` (folders and `.py`
