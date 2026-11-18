@@ -282,7 +282,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
   with warnings.catch_warnings():
       warnings.simplefilter("error", Image.DecompressionBombWarning)
       with Image.open(upload) as img:
-          img.verify()      # raises for a broken or oversized image: refuse the upload
+          img.verify()  # raises for a broken or oversized image: refuse the upload
           kind = img.format  # e.g. "PNG": check it's one the module allows
   ```
 
