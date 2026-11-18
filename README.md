@@ -97,7 +97,8 @@ pre-commit install              # once per clone
   uncommitted changes included: `copier copy --vcs-ref=HEAD --data github_owner=me
   --data license=MIT /path/to/capy-module /tmp/try-it`, then run its checks
   with uv 0.12, which modules require (`git init -b main`, `uv lock`, `uv run pytest
-  --cov`, `uv run ruff check .`, `uv build`). Never use `--vcs-ref=HEAD` for a real
+  --cov`, `uv run ruff check .`, `uv run ruff format --check .`, which also checks the
+  Python examples in its README, and `uv build`). Never use `--vcs-ref=HEAD` for a real
   module: Copier records an unreleased version and later refuses to update from it. The
   starter's own `.gitignore` keeps secrets and test output out of the copy.
 - **Pinned versions** are kept in step by hand: the gitleaks `rev` in both
