@@ -55,7 +55,7 @@ In a project made from django-starter, with its database running
    `config/settings/__init__.py` (the `from . import …` line and the `for _topic in …`
    list) and in `TOPICS` in `tests/test_settings_package.py`.
 5. The module's pages extend the project's `templates/layout.html` (see
-   [Pages](#pages)). A project made from django-starter v1.0 doesn't have one yet: add
+   [Pages](#pages)). A project made from django-starter v1.0.x doesn't have one yet: add
    this `templates/layout.html` (your nav bar and footer go where the comments are):
 
    ```html
@@ -71,8 +71,9 @@ In a project made from django-starter, with its database running
    {% block footer %}<footer>{# Your footer. #}</footer>{% endblock %}{% endraw %}
    ```
 
-   The `role="status"` region shows Django's messages ("Saved.") and makes screen
-   readers announce them; modules rely on it.
+   The `role="status"` region shows Django's messages ("Saved.") at the top of every
+   page, and screen readers announce messages added there without a page reload
+   (htmx); modules rely on it.
 6. Create its tables, then run the project's tests:
 
    ```bash
@@ -167,7 +168,8 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
     when written by hand, a visible `<label for>` and `aria-describedby` for help and
     errors on every field; after a failed submit, the errors are near the top of the
     page or the first wrong field gets the focus;
-  - real `<button>` and `<a>` elements, never clickable `<div>`s, at least 24 by 24 CSS
+  - real `<button>` and `<a>` elements, never clickable `<div>`s; buttons and
+    standalone links (not links inside a sentence) at least 24 by 24 CSS
     pixels, with a visible focus outline (never `outline: none` without a replacement);
   - every `<img>` has `alt` (empty, `alt=""`, for decoration) and its `width` and
     `height`, so the page doesn't jump while it loads;
@@ -264,14 +266,28 @@ Rules for the module's code. The project trusts whatever the module does, so:
   - data for JavaScript goes through `{% raw %}{{ data|json_script:"id" }}{% endraw %}`,
     never `{% raw %}{{ }}{% endraw %}` inside a script;
   - never build a `Template(...)` from text a user typed;
-  - a URL a user gives is saved, and put in a link (`href`) or redirected to, only if
-    it starts with `https://` (or `http://`): this stops `javascript:` links.
+  - a URL a user gives is saved and put in a link (`href`) only if it starts with
+    `https://` (or `http://`): this stops `javascript:` links. Never redirect to one;
+    redirects go only to the module's own site (see `next` above).
 - **Uploads:** check the size, and the type from the file's content, never from its
-  name or the browser's word. For images, during the request: Pillow's
-  `Image.open(…)` then `.verify()`, keeping Pillow's `MAX_IMAGE_PIXELS` limit and
-  treating its `DecompressionBombWarning` as an error
-  (`warnings.simplefilter("error", Image.DecompressionBombWarning)`). Fully decoding,
-  resizing or converting an image happens later, in a background job (see below).
+  name or the browser's word. For images, during the request, keeping Pillow's
+  `MAX_IMAGE_PIXELS` limit and treating its `DecompressionBombWarning` as an error
+  (only around this check, not for the whole server):
+
+  ```python
+  import warnings
+
+  from PIL import Image
+
+  with warnings.catch_warnings():
+      warnings.simplefilter("error", Image.DecompressionBombWarning)
+      with Image.open(upload) as img:
+          img.verify()      # raises for a broken or oversized image: refuse the upload
+          kind = img.format  # e.g. "PNG": check it's one the module allows
+  ```
+
+  Fully decoding, resizing or converting an image happens later, in a background job
+  (see below).
   Name the stored file's extension after the format Pillow found (`img.format`), not
   the uploaded name. `ImageField` needs Pillow (`uv add pillow`). Store each file
   under a `{{ package_name }}/` folder with a random part, from a function of the
@@ -324,7 +340,9 @@ Rules for the module's code. The project trusts whatever the module does, so:
     (`ipaddress.ip_address(a).is_global`; for an IPv6 address, check its
     `ipv4_mapped` address too);
   - connect to the address you checked, not the name again: a second lookup can give
-    a different, internal address (DNS rebinding);
+    a different, internal address (DNS rebinding). Keep certificate checks on, checked
+    against the original host name (the client library's way of pinning the address
+    while keeping the name, never `verify=False`);
   - don't follow redirects, or check each one the same way;
   - cap the response size and the time.
 - **Background jobs:** pass IDs, never secrets, tokens or personal data, as arguments:
@@ -360,11 +378,15 @@ Rules for the module's code. The project trusts whatever the module does, so:
        for a whole model.
   - **renaming a field** the same way, or its data is lost (the old code keeps writing
     only the old column, during the deploy and after a rollback):
-    1. add the new field, write to both fields, and copy the old values across in a
-       data migration;
-    2. copy again the rows the old code wrote meanwhile, read and write only the new
-       field, and remove the old one from the model (state only);
+    1. add the new field (nullable or with a `db_default`), write to both fields, and
+       copy the old values across in a data migration;
+    2. copy again the rows the old code wrote meanwhile, make the old field nullable
+       (or give it a `db_default`), read and write only the new field, and remove the
+       old one from the model (state only);
     3. drop the old column.
+
+    Each of these releases can be rolled back only to the one before it, and the
+    column drop can't be undone.
 
     To rename it only in Python, keep the column instead:
     `new_name = models.CharField(…, db_column="old_name")` changes nothing in the
@@ -546,8 +568,9 @@ After the first push, nothing is pushed straight to `main`: every change goes
 through a pull request. Each tag is `v` plus `version` from `pyproject.toml`.
 
 **The first release** is `v0.1.0`: `pyproject.toml` and `CHANGELOG.md` already say
-0.1.0, so skip step 1's edits (fill in the CHANGELOG's 0.1.0 entry if it needs more),
-then do steps 2 to 4.
+0.1.0. If the CHANGELOG's 0.1.0 entry needs more, follow steps 1 to 4 without changing
+the version. If not, there's nothing for a pull request: check that CI passed on
+`main`, try `main` in a project as step 2 says, then tag `v0.1.0` (step 4).
 
 1. Open an issue for the release and a branch for it. Change `version` in
    `pyproject.toml`, run `uv lock` (CI refuses a lock file that doesn't match), and add
