@@ -8,8 +8,8 @@ _subdirectory: template
 
 # Not questions: names a module may not take, because once installed the module and a
 # package of the same name would replace each other. An import name clash overwrites
-# the package's files without a warning: a module called "axes" would remove a
-# capy-project project's login rate limiting. A distribution name clash makes uv
+# the package's files without a warning: a module called "axes" would remove the
+# login rate limiting of projects made from capy-project. A distribution name clash makes uv
 # treat the module and the package as one. A Python standard-library name (json,
 # email, ...) is caught by the module's first test run
 # (test_app_loads_from_its_own_package). How to keep these lists current: this
@@ -18,7 +18,7 @@ taken_package_names:
   type: yaml
   when: false
   default: [
-    # Django's own apps; what every capy-project project has (its folders, manage.py,
+    # Django's own apps; what every project made from capy-project has (its folders, manage.py,
     # whitenoise's runserver_nostatic app); test folder names ("test" is also a
     # standard-library package, refused here too because it's so common);
     # "migrations", which the module's lint and coverage settings skip; names Python
@@ -27,7 +27,7 @@ taken_package_names:
     postgres, sitemaps, syndication, flatpages, redirects, gis, admindocs, accounts,
     config, manage, runserver_nostatic, tests, test, migrations, sitecustomize,
     usercustomize,
-    # what capy-project projects install (top-level import names, and app labels
+    # what projects made from capy-project install (top-level import names, and app labels
     # that differ from them)
     argon2, asgiref, axes, boolean, boto3, botocore, cachecontrol, certifi, cffi, cfgv,
     charset_normalizer, colorama, coverage, cyclonedx, dateutil, defusedxml, distlib,
@@ -108,7 +108,7 @@ package_name:
     {% elif package_name | length > 40 %}
     Use at most 40 characters.
     {% elif package_name in taken_package_names %}
-    "{{ package_name }}" is already used by Django, by capy-project projects or a
+    "{{ package_name }}" is already used by Django, by projects made from capy-project or a
     package they install, by the module's own tools or by Python: choose another name.
     {% elif package_name in ['and', 'as', 'assert', 'async', 'await', 'break', 'class',
       'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from',
@@ -128,7 +128,7 @@ distribution_name:
     {% elif distribution_name | length > 60 %}
     Use at most 60 characters.
     {% elif distribution_name in taken_distribution_names %}
-    "{{ distribution_name }}" is a package capy-project projects or the module itself
+    "{{ distribution_name }}" is a package that projects made from capy-project or the module itself
     install: choose another name.
     {% endif %}
 

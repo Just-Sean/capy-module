@@ -53,7 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Each supported database (PostgreSQL 18, what capy-project projects run, and
+        # Each supported database (PostgreSQL 18, what projects made from capy-project run, and
         # SQLite) with the locked versions, plus SQLite once with the lowest version
         # pyproject.toml allows for each direct dependency (e.g. Django 6.1 while
         # uv.lock has a newer 6.x), since projects may run any of them.
@@ -96,7 +96,7 @@ jobs:
           UV_LOCKED: "false"
           UV_EXCLUDE_NEWER: "7 days"
         run: uv sync --resolution lowest-direct
-      # The tests log in as a role like the login a capy-project project's app uses:
+      # The tests log in as a role like the app login of a project made from capy-project:
       # not a superuser, so a migration that needs one fails here first. CREATEDB only so
       # pytest-django can make its test database.
       - name: Create a login like a project's

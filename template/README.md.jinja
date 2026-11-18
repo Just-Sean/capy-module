@@ -8,7 +8,7 @@ and working in any Django project. It has no project of its own: its tests run a
 a tiny stand-in project in `tests/`.
 
 **Works with:** Python 3.14+, Django 6.1 or a later 6.x, and PostgreSQL 18 (what
-capy-project projects run) or SQLite. CI tests both databases with the versions in
+projects made from capy-project run) or SQLite. CI tests both databases with the versions in
 `uv.lock` (the newest 6.x), and SQLite once more with the lowest versions allowed
 (Django 6.1).
 
@@ -55,7 +55,7 @@ In a project made from capy-project, with its database running
    `config/settings/__init__.py` (the `from . import …` line and the `for _topic in …`
    list) and in `TOPICS` in `tests/test_settings_package.py`.
 5. The module's pages extend the project's `templates/layout.html` (see
-   [Pages](#pages)). A project made from capy-project v1.0.x doesn't have one yet: add
+   [Pages](#pages)). A project made from capy-project (django-starter) v1.0.x doesn't have one yet: add
    this `templates/layout.html` (your nav bar and footer go where the comments are):
 
    ```html
@@ -126,7 +126,7 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 - **URLs:** name them inside `app_name = "{{ package_name }}"` in `urls.py`
   (`{% raw %}{% url "{% endraw %}{{ package_name }}{% raw %}:detail" … %}{% endraw %}`), so
   they never clash with a project's. Models expose a `public_id` (a UUID) in URLs and
-  APIs, never the database `id`, as capy-project projects do.
+  APIs, never the database `id`, as projects made from capy-project do.
 - **Business logic** lives in plain functions (`services.py` for changes, `selectors.py`
   for reads) that views, the admin and background jobs share.
 - **Slow work** (emails, file processing, calls to other services) goes to a
@@ -136,7 +136,7 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
   a job's arguments change, keep accepting the old ones until queued jobs have run. A
   project needs its `worker` running for them. **Email** goes through
   `django.core.mail`.
-- **The cache** is Redis in capy-project projects, and Django raises an error when
+- **The cache** is Redis in projects made from capy-project, and Django raises an error when
   Redis is down: code that must keep working then catches cache errors and falls back
   to the database. Clear a cached value when its data is saved; don't rely on a
   timeout alone.
@@ -191,14 +191,14 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 - **Confirm actions** with Django's messages framework
   (`messages.success(request, _("Saved."))`); the project's `layout.html` shows them.
 - **No inline code**: projects enforce a strict Content Security Policy (a
-  capy-project project only reports problems while you develop, and blocks them in
+  project made from capy-project only reports problems while you develop, and blocks them in
   production). Put CSS and JavaScript in static files; if inline code is unavoidable,
   give the tag `nonce="{% raw %}{{ csp_nonce }}{% endraw %}"` or
   `{% raw %}{% csp_nonce_attr %}{% endraw %}`. Never `style="…"`, `onclick=` or
   `javascript:` links, and no code that needs `eval` (htmx's `hx-on`, or Alpine's
   standard build: use its CSP build). Load nothing from other sites (CDNs, web fonts, images too) and don't post
   forms to them; `data:` URLs only for images and icons. No frames, video, audio,
-  embedded objects or manifests: a capy-project project's policy blocks them all.
+  embedded objects or manifests: the policy of projects made from capy-project blocks them all.
 - **`tests/test_csp.py` checks** the module's HTML, SVG, XML and Jinja templates under
   `templates/` and `jinja2/` against that policy. It's a safety net that reads
   template source, not a browser: it can't see CSS or JavaScript files, what inline
@@ -304,7 +304,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
       return f"{{ package_name }}/{uuid4().hex}/{get_valid_filename(filename)}"
   ```
 
-  In capy-project projects the default storage is **private**: its files are served
+  In projects made from capy-project the default storage is **private**: its files are served
   only through the project's own view, to whoever the project's `can_download()`
   allows (by default, active staff). So a module that keeps private files either says
   in this README what projects should allow in `can_download()`, or serves them
@@ -325,7 +325,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
 
 
   def public_storage():
-      # The project's public storage (capy-project projects have one), else the default.
+      # The project's public storage (capy-project's projects have one), else the default.
       return storages["public"] if "public" in settings.STORAGES else default_storage
   ```
 
@@ -355,7 +355,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
 ## Database
 
 - **Supported:** PostgreSQL 18 and SQLite (both tested on every pull request). CI's
-  Postgres tests log in as a role like a capy-project project's app login (not a
+  Postgres tests log in as a role like the app login of a project made from capy-project (not a
   superuser), as projects migrate with.
 - **Every migration keeps working with the previous release's code.** Projects
   migrate while the old code still runs, and a rollback keeps the new database with
@@ -446,7 +446,7 @@ Rules for the module's code. The project trusts whatever the module does, so:
   schema changes), with `atomic = False`, saving each batch (say 1,000 rows) in its own
   `transaction.atomic()`, so no single transaction holds the table for long.
 - **Nothing that needs a superuser** (e.g. `CREATE EXTENSION` of an untrusted
-  extension; trusted ones such as `pg_trgm` work): capy-project projects migrate
+  extension; trusted ones such as `pg_trgm` work): projects made from capy-project migrate
   with a login that isn't one, and so does CI. If the module needs such an extension,
   say so here and in the CHANGELOG, so the project adds it first.
 - **Never edit or delete a released migration**; add a new one. Data migrations use

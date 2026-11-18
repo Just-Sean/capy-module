@@ -1,6 +1,6 @@
 # capy-module (Copier template)
 
-Called django-module-starter before its v1.0.0, and its host template, capy-project,
+Called django-module-starter up to v0.1.1, and its host template, capy-project,
 was called django-starter up to v1.0.1. GitHub sends the old names to the new ones,
 so older links and modules' `copier update` keep working.
 
@@ -44,8 +44,8 @@ Copier asks:
 | Question | What it's for |
 | --- | --- |
 | `module_name` | The human-readable name (e.g. "Site Branding"), shown in the admin |
-| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the packages capy-project projects and the module itself install) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
-| `distribution_name` | The name `uv add` installs (e.g. `site-branding`). Names of packages capy-project projects or the module install are refused |
+| `package_name` | The Python import name and Django app label (e.g. `site_branding`). Names that would clash (Django's apps, `accounts`, `config`, Python keywords, the packages that projects made from capy-project and the module itself install) are refused; a Python standard-library name (`json`, `email`, …) fails the module's first test run |
+| `distribution_name` | The name `uv add` installs (e.g. `site-branding`). Names of packages that projects made from capy-project or the module install are refused |
 | `description` | One sentence saying what the module does |
 | `github_owner` | The GitHub account or organization the module will live under, also the copyright holder in its `LICENSE`. No default: type your own |
 | `license` | MIT, or proprietary (all rights reserved) |
@@ -73,6 +73,13 @@ both versions between `<<<<<<<` and `>>>>>>>` lines to sort out by hand. The mod
 README ("Updating from the starter") has every step, and how to change the GitHub
 owner, license or year later.
 
+**Modules made before the rename** (from django-module-starter, up to v0.1.1): nothing
+to do. Their `.copier-answers.yml` still names the old repository (`_src_path`), and
+`copier update` follows GitHub's forwarding from the old name. To stop relying on it,
+change that line to `_src_path: gh:Just-Sean/capy-module` and commit. Never create a
+new repository called `django-module-starter` under this account: that ends the
+forwarding, and modules would update from the new repository instead.
+
 ## Working on the starter
 
 The starter is under the MIT license (`LICENSE`). Its own commit check (gitleaks, so no
@@ -99,7 +106,7 @@ pre-commit install              # once per clone
   `pyproject.toml.jinja`, and the `uv self update` version in `template/README.md.jinja`.
 - **Refused names** (`taken_package_names` and `taken_distribution_names` in
   `copier.yml`): besides Django's apps and a project's own names, every package a
-  capy-project project and a module install, since a module with the same name would
+  project made from capy-project and a module install, since a module with the same name would
   replace it in projects. Check them whenever either template's dependencies change or
   are upgraded:
   1. Make a throwaway project from your capy-project working copy
