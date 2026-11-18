@@ -55,25 +55,28 @@ In a project made from capy-project, with its database running
    `config/settings/__init__.py` (the `from . import …` line and the `for _topic in …`
    list) and in `TOPICS` in `tests/test_settings_package.py`.
 5. The module's pages extend the project's `templates/layout.html` (see
-   [Pages](#pages)). A project made from capy-project (django-starter) v1.0.x doesn't have one yet: add
-   this `templates/layout.html` (your nav bar and footer go where the comments are):
+   [Pages](#pages)), which shows Django's messages ("Saved.") in a `role="status"`
+   region that modules rely on.
+   - **A project made from capy-project v1.1.0 or later** already has it: nothing to
+     do. (If this module is a theme or an app shell, add the line this README gives
+     for the project's `layout.html`.)
+   - **A project made from v1.0.x** (when it was called django-starter): run
+     `copier update` to capy-project v1.1.0 or later, which adds `layout.html`, and
+     follow its "New in v1.1.0" update notes. If you can't update yet, add this
+     `templates/layout.html` (your nav bar goes where the comment is; add a `footer`
+     block with a `<footer>` once there's something to put in it):
 
-   ```html
-   {% raw %}{% extends "base.html" %}
-   {% block header %}
-   <header>
-     {# Your nav bar. #}
-     <div role="status">
-       {% for message in messages %}<p>{{ message }}</p>{% endfor %}
-     </div>
-   </header>
-   {% endblock %}
-   {% block footer %}<footer>{# Your footer. #}</footer>{% endblock %}{% endraw %}
-   ```
-
-   The `role="status"` region shows Django's messages ("Saved.") at the top of every
-   page, and screen readers announce messages added there without a page reload (for
-   example by htmx or JavaScript); modules rely on it.
+     ```html
+     {% raw %}{% extends "base.html" %}
+     {% block header %}
+     <header>
+       {# Your nav bar. #}
+       <div role="status">
+         {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+       </div>
+     </header>
+     {% endblock %}{% endraw %}
+     ```
 6. Create its tables, then run the project's tests:
 
    ```bash
@@ -154,7 +157,10 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 
   Leave `header` and `footer` to the project, and never ship a `layout.html` of your
   own. A module whose job is the layout itself (a nav menu, a theme) provides template
-  tags instead, and its README says which line a project adds to its `layout.html`.
+  tags instead, and its README says which line a project adds to its `layout.html`:
+  in its `head` block, in the nav in its `<header>`, or, for attributes on `<html>`,
+  in its `html_attrs` block, starting with a space
+  (`{% raw %}{% block html_attrs %} {% endraw %}…`), since it follows `lang="en"`.
   Modules rely only on the name `layout.html`, these three blocks, and the layout
   showing Django's messages in a `role="status"` region. Template tags that
   read the database belong in `layout.html`, never in `base.html`, so the project's
@@ -223,7 +229,7 @@ Never log secrets, passwords, tokens or personal data; log IDs instead.
 
   ```html
   {% raw %}<!doctype html>
-  <html lang="en">
+  <html lang="en"{% block html_attrs %}{% endblock %}>
   <head>
     <meta charset="utf-8">
     {% block head %}{% endblock %}
