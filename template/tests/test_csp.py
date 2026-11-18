@@ -1,7 +1,7 @@
 """The module's templates have nothing a strict Content Security Policy blocks, so its
 pages work in any project that installs it.
 
-The policy checked is django-starter's (config/settings/security.py), the strictest a
+The policy checked is capy-project's (config/settings/security.py), the strictest a
 module meets: scripts and styles only from the project's own site, or inline with the
 page's nonce; images from the site or data: URLs; no frames, video, audio, objects or
 manifests; forms post and pings go only to the site. So these are blocked:

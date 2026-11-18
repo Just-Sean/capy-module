@@ -1,12 +1,12 @@
 """A rule a module keeps so it fits any project that installs it, such as projects made
-from django-starter: it never adds a `check --deploy` warning to the project. (Its
+from capy-project: it never adds a `check --deploy` warning to the project. (Its
 templates are checked in test_csp.py.)"""
 
 import string
 
 from django.core.management import call_command
 
-# A production project's security settings, as django-starter sets them, so any warning
+# A production project's security settings, as capy-project sets them, so any warning
 # `check --deploy` still gives comes from the module.
 PRODUCTION_SECURITY = {
     "DEBUG": False,
