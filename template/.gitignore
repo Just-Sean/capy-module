@@ -31,3 +31,7 @@ id_ed25519*
 # only (an app may ship a folder of its own called media/).
 /*.sqlite3*
 /media/
+
+# Agent worktrees (claude -w) and per-machine Claude approvals
+.claude/worktrees/
+.claude/settings.local.json
