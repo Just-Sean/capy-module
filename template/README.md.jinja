@@ -522,7 +522,13 @@ https://github.com/{{ github_owner }}/{{ distribution_name }}.git` and
   (gitleaks, whole history)". GitHub lists them to pick from only after CI has run
   once, so open your first pull request, then come back. On a free GitHub account,
   a private repository can't protect branches: there, check that CI passed before you
-  merge.
+  merge. A one-command shortcut for this ruleset is `protect-main.sh
+  {{ github_owner }}/{{ distribution_name }}` (a helper kept in `~/bin`); run it after
+  your first pull request has run CI, so it can require those checks by name.
+
+In a new worktree for a parallel agent (`claude -w <name>`), run `scripts/wt-env.sh`
+first — it gives the worktree its own virtualenv (the tests use an isolated in-memory
+database, so nothing else is needed).
 
 Every day:
 
